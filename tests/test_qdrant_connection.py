@@ -97,11 +97,11 @@ class TestQdrantConnection:
         time.sleep(1)
         
         # Query similar points
-        search_result = qdrant_client.search(
+        search_result = qdrant_client.query_points(
             collection_name=collection_name,
-            query_vector=[0.1, 0.2, 0.3, 0.4],
+            query=[0.1, 0.2, 0.3, 0.4],
             limit=2
-        )
+        ).points
         
         assert len(search_result) >= 1
         assert search_result[0].id == 1  # Should be most similar to itself

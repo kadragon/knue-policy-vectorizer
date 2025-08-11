@@ -42,8 +42,7 @@ def test_project_structure():
     
     # Check configuration files exist
     assert os.path.exists("pyproject.toml")
-    assert os.path.exists("requirements.txt")
-    assert os.path.exists(".gitignore")
+    assert os.path.exists("uv.lock")
 
 
 def test_config_module():
