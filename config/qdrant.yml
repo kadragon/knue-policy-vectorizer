@@ -1,0 +1,37 @@
+service:
+  http_port: 6333
+  grpc_port: 6334
+
+log_level: INFO
+
+# Storage configuration
+storage:
+  # Use filesystem storage
+  storage_path: "/qdrant/storage"
+
+# Collection settings
+collection:
+  # Default vector configuration
+  vector_params:
+    distance: "Cosine"
+
+# Performance settings
+hnsw_config:
+  # Number of connections each new element makes to existing elements
+  m: 16
+  # Size of the dynamic candidate list
+  ef_construct: 100
+  
+# Optimization settings
+optimizer:
+  # Number of threads to use for collection operations
+  max_optimization_threads: 2
+  # Threshold for triggering indexing
+  indexing_threshold: 20000
+
+# Service settings
+cluster:
+  enabled: false
+
+telemetry:
+  enabled: false

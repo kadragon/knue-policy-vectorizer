@@ -1,0 +1,25 @@
+# Core dependencies
+langchain
+langchain-ollama
+qdrant-client
+GitPython
+
+# Testing
+pytest
+pytest-asyncio
+pytest-mock
+
+# Utilities
+python-frontmatter
+pydantic
+python-dotenv
+click
+
+# Logging and monitoring  
+structlog
+colorama
+
+# Development
+black
+isort
+mypy
