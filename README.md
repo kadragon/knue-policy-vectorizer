@@ -864,7 +864,7 @@ uv run python -m src.sync_pipeline reindex
 
 문제가 지속되는 경우:
 
-1. **GitHub Issues**: [프로젝트 이슈 페이지](https://github.com/your-repo/issues)에 문제 리포트
+1. **GitHub Issues**: [프로젝트 이슈 페이지](https://github.com/kadragon/knue-policy-vectorizer/issues)에 문제 리포트
 2. **로그 첨부**: 에러 로그와 시스템 정보 포함
 3. **환경 정보**: OS, Python 버전, Docker 버전 명시
 4. **재현 단계**: 문제 발생 과정을 단계별로 설명
@@ -887,16 +887,9 @@ uv run python -m src.sync_pipeline reindex
 
 ## 📄 라이선스
 
-MIT License - 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
+MIT License
 
 ## 📞 지원
 
-- **이슈 리포트**: [GitHub Issues](https://github.com/your-repo/issues)
-- **문서**: [프로젝트 Wiki](https://github.com/your-repo/wiki)
-- **이메일**: <kadragon@knue.ac.kr>
-
----
-
-**Made with ❤️ by the KNUE Development Team**
-
-한국교원대학교 정책 문서를 더 쉽게 검색하고 활용할 수 있도록 지원합니다.
+- **이슈 리포트**: [GitHub Issues](https://github.com/kadragon/knue-policy-vectorizer/issues)
+- **이메일**: <kangdongouk@gmail.com>
