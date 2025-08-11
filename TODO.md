@@ -94,30 +94,38 @@ PRD.txt를 기반으로 한 **TDD(테스트 주도 개발)** 방식의 KNUE Poli
 
 ---
 
-## Phase 4: 임베딩 서비스 연동
+## Phase 4: 임베딩 서비스 연동 ✅ COMPLETED
 
-### ✅ 4.1 Ollama 임베딩 서비스 테스트 작성
-- [ ] `tests/test_embedding_service.py` 작성
-- [ ] Ollama 연결 테스트
-- [ ] bge-m3 모델 임베딩 테스트
-- [ ] 토큰 길이 제한 테스트
+### ✅ 4.1 Ollama 임베딩 서비스 테스트 작성 (TDD)
+- [x] `tests/test_embedding_service.py` 작성 (20개 포괄적 테스트)
+- [x] Ollama 연결 테스트 (health check 포함)
+- [x] bge-m3 모델 임베딩 테스트 (1024차원)
+- [x] 토큰 길이 제한 테스트 (8192 토큰 제한)
+- [x] 배치 처리 및 에러 핸들링 테스트
+- [x] 한국어 텍스트 지원 테스트
 
-**검증 방법**: `pytest tests/test_embedding_service.py -v` 실행 (실패 예상)
+**✅ 검증 완료**: 20개 단위 테스트 모두 통과
 
 ### ✅ 4.2 Ollama를 통한 임베딩 생성 기능 구현
-- [ ] `src/embedding_service.py` 구현
-- [ ] EmbeddingService 클래스 구현
-- [ ] generate_embedding() 메서드
-- [ ] LangChain OllamaEmbeddings 연동
+- [x] `src/embedding_service.py` 구현 (완전한 EmbeddingService 클래스)
+- [x] generate_embedding() 메서드 (단일 텍스트)
+- [x] generate_embeddings_batch() 메서드 (배치 처리)
+- [x] LangChain Ollama 연동 (langchain-ollama 사용)
+- [x] 토큰 제한 검증 (tiktoken 활용)
+- [x] 헬스체크 및 모델 정보 조회 기능
+- [x] 포괄적 에러 핸들링 (EmbeddingError)
 
-**검증 방법**: 테스트 통과 및 샘플 텍스트 임베딩 생성 확인
+**✅ 검증 완료**: 모든 테스트 통과, TDD 사이클 완료
 
 ### ✅ 4.3 임베딩 생성 통합 테스트 및 실행 확인
-- [ ] 실제 markdown 문서로 임베딩 생성 테스트
-- [ ] 임베딩 벡터 크기 (1024) 확인
-- [ ] 성능 측정 (처리 시간)
+- [x] 실제 markdown 문서로 임베딩 생성 테스트 완료
+- [x] 임베딩 벡터 크기 (1024) 확인
+- [x] 성능 측정 (평균 0.058초/임베딩)
+- [x] 배치 처리 효율성 검증 (2.12x 성능 향상)
+- [x] 한국어 정책 문서 처리 확인
+- [x] MarkdownProcessor와 완전 통합 테스트
 
-**검증 방법**: 실제 문서 임베딩 결과 및 차원 확인
+**✅ 검증 완료**: 통합 테스트 스크립트 실행, 모든 기능 정상 작동
 
 ---
 
@@ -223,23 +231,28 @@ PRD.txt를 기반으로 한 **TDD(테스트 주도 개발)** 방식의 KNUE Poli
 
 ## 진행 상황 추적
 
-### ✅ **완료된 Phase (3/8)**:
-- **Phase 1**: 프로젝트 기반 설정 ✅ COMPLETED 
+### ✅ **완료된 Phase (4/8)**
+
+- **Phase 1**: 프로젝트 기반 설정 ✅ COMPLETED
 - **Phase 2**: Git 저장소 감시 기능 ✅ COMPLETED
 - **Phase 3**: Markdown 전처리 기능 ✅ COMPLETED
+- **Phase 4**: 임베딩 서비스 연동 ✅ COMPLETED
 
-### 🔄 **현재 진행중**: Phase 4 - 임베딩 서비스 연동
+### 🔄 **현재 진행중**: Phase 5 - Qdrant 벡터 스토어 연동
 
-**다음 단계**: Ollama 임베딩 서비스 테스트 작성 (TDD 방식으로 bge-m3 모델 연동)
+**다음 단계**: Qdrant 연동 테스트 작성 (TDD 방식으로 컬렉션 생성 및 포인트 관리)
 
-### 📊 **전체 진행률**: 7/19 tasks completed (37%)
+### 📊 **전체 진행률**: 10/19 tasks completed (53%)
 
-### 🎯 **주요 성과**:
+### 🎯 **주요 성과**
+
 - ✅ 완전한 프로젝트 구조 및 개발 환경 구축 (uv, pytest, VS Code 통합)
 - ✅ Qdrant 벡터 데이터베이스 Docker 환경 구성 (1024차원 bge-m3 지원)
 - ✅ 실제 KNUE Policy Hub 저장소 (100개 마크다운 파일) 처리 가능한 Git 감시자 구현
 - ✅ 포괄적 Markdown 전처리 파이프라인 (frontmatter 제거, 제목 추출, 메타데이터 생성)
-- ✅ TDD 방법론 적용으로 모든 기능 테스트 커버리지 확보 (37개 테스트 통과)
+- ✅ 완전한 Ollama 임베딩 서비스 연동 (bge-m3 모델, 1024차원, 배치 처리 지원)
+- ✅ TDD 방법론 적용으로 모든 기능 테스트 커버리지 확보 (57개 테스트 통과)
 - ✅ 한국어 정책 문서 UTF-8 처리 및 토큰 길이 검증 완료
+- ✅ 고성능 임베딩 생성 (평균 0.058초/임베딩, 배치 처리 2.12x 효율성)
 
 각 단계마다 테스트 실행 결과와 실제 동작 확인을 통해 진행 상황을 검증하고 있습니다.
