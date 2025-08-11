@@ -1,0 +1,11 @@
+# KNUE Policy Vectorizer Cron Jobs
+# Sync every hour at minute 0
+0 * * * * cd /app && python -m src.sync_pipeline sync >> /app/logs/cron.log 2>&1
+
+# Health check every 15 minutes
+*/15 * * * * cd /app && python -m src.sync_pipeline health >> /app/logs/health.log 2>&1
+
+# Weekly reindex on Sunday at 2 AM
+0 2 * * 0 cd /app && python -m src.sync_pipeline reindex >> /app/logs/reindex.log 2>&1
+
+# Empty line required at end of crontab file

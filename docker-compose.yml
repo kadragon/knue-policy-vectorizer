@@ -1,0 +1,71 @@
+# KNUE Policy Vectorizer - Main Docker Compose Configuration
+# 
+# This file provides two deployment options:
+# 1. Development: docker-compose up qdrant (Qdrant only)
+# 2. Production: docker-compose up (Qdrant + Auto-sync every hour)
+#
+# For cron-based scheduling, use: docker-compose -f docker-compose.cron.yml up
+
+version: "3.8"
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: knue-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"  # HTTP API
+      - "6334:6334"  # gRPC API (optional)
+    volumes:
+      - qdrant_storage:/qdrant/storage
+      - ./config/qdrant.yml:/qdrant/config/production.yaml:ro
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=6333
+      - QDRANT__SERVICE__GRPC_PORT=6334
+      - QDRANT__LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - knue-network
+
+  indexer:
+    build: .
+    container_name: knue-indexer
+    restart: unless-stopped
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    volumes:
+      - ./repo_cache:/app/repo_cache
+      - ./logs:/app/logs
+    env_file:
+      - .env.docker
+    networks:
+      - knue-network
+    # Auto-sync every hour (simple loop)
+    # For more robust scheduling, use docker-compose.cron.yml
+    command: >
+      sh -c "
+        echo 'Starting KNUE Policy Vectorizer indexer...'
+        echo 'Running initial sync...'
+        uv run python -m src.sync_pipeline sync
+        echo 'Initial sync completed. Starting hourly sync loop...'
+        while true; do
+          echo 'Waiting 1 hour for next sync...'
+          sleep 3600
+          echo 'Running scheduled sync...'
+          uv run python -m src.sync_pipeline sync
+        done
+      "
+
+volumes:
+  qdrant_storage:
+    driver: local
+
+networks:
+  knue-network:
+    driver: bridge
