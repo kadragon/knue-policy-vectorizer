@@ -67,24 +67,30 @@ PRD.txt를 기반으로 한 **TDD(테스트 주도 개발)** 방식의 KNUE Poli
 
 ---
 
-## Phase 3: Markdown 전처리 기능
+## Phase 3: Markdown 전처리 기능 ✅ COMPLETED
 
-### ✅ 3.1 Markdown 파일 전처리 테스트 작성
-- [ ] `tests/test_markdown_processor.py` 작성
-- [ ] Frontmatter 제거 테스트
-- [ ] H1 제목 추출 테스트
-- [ ] 메타데이터 생성 테스트
+### ✅ 3.1 Markdown 파일 전처리 테스트 작성 (TDD)
+- [x] `tests/test_markdown_processor.py` 작성 (17개 포괄적 테스트)
+- [x] YAML/TOML Frontmatter 제거 테스트
+- [x] H1 제목 추출 및 폴백 테스트 (파일명 사용)
+- [x] 콘텐츠 정리 및 구조 보존 테스트
+- [x] 메타데이터 생성 테스트 (PRD 스키마 준수)
+- [x] 문서 ID 계산 및 토큰 수 추정 테스트
+- [x] 실제 KNUE 문서 형식 통합 테스트
 
-**검증 방법**: `pytest tests/test_markdown_processor.py -v` 실행 (실패 예상)
+**✅ 검증 완료**: 17개 테스트 모두 통과
 
 ### ✅ 3.2 Markdown 전처리 기능 구현
-- [ ] `src/markdown_processor.py` 구현
-- [ ] MarkdownProcessor 클래스 구현
-- [ ] process_markdown() 메서드
-- [ ] extract_title() 메서드
-- [ ] generate_metadata() 메서드
+- [x] `src/markdown_processor.py` 구현 (완전한 MarkdownProcessor 클래스)
+- [x] YAML/TOML frontmatter 제거 기능 (python-frontmatter + 수동 파싱)
+- [x] 스마트 제목 추출 (H1 → 파일명 → 기본값 순서)
+- [x] 콘텐츠 정리 (과도한 공백 제거, 마크다운 구조 보존)
+- [x] PRD 스키마 준수 메타데이터 생성
+- [x] 문서 ID 생성 (MD5 해시 기반)
+- [x] 토큰 수 추정 및 길이 검증 (bge-m3 8192 토큰 제한)
+- [x] 완전한 파이프라인 및 벡터화용 문서 생성
 
-**검증 방법**: 테스트 통과 및 샘플 .md 파일 처리 결과 확인
+**✅ 검증 완료**: 모든 테스트 통과, 한국어 정책 문서 처리 최적화
 
 ---
 
@@ -217,21 +223,23 @@ PRD.txt를 기반으로 한 **TDD(테스트 주도 개발)** 방식의 KNUE Poli
 
 ## 진행 상황 추적
 
-### ✅ **완료된 Phase (2/8)**:
+### ✅ **완료된 Phase (3/8)**:
 - **Phase 1**: 프로젝트 기반 설정 ✅ COMPLETED 
 - **Phase 2**: Git 저장소 감시 기능 ✅ COMPLETED
+- **Phase 3**: Markdown 전처리 기능 ✅ COMPLETED
 
-### 🔄 **현재 진행중**: Phase 3 - Markdown 전처리 기능
+### 🔄 **현재 진행중**: Phase 4 - 임베딩 서비스 연동
 
-**다음 단계**: Markdown 파일 전처리 테스트 작성 (TDD 방식으로 frontmatter 제거, 제목 추출 기능)
+**다음 단계**: Ollama 임베딩 서비스 테스트 작성 (TDD 방식으로 bge-m3 모델 연동)
 
-### 📊 **전체 진행률**: 5/19 tasks completed (26%)
+### 📊 **전체 진행률**: 7/19 tasks completed (37%)
 
 ### 🎯 **주요 성과**:
-- ✅ 완전한 프로젝트 구조 및 개발 환경 구축
-- ✅ Qdrant 벡터 데이터베이스 Docker 환경 구성 
+- ✅ 완전한 프로젝트 구조 및 개발 환경 구축 (uv, pytest, VS Code 통합)
+- ✅ Qdrant 벡터 데이터베이스 Docker 환경 구성 (1024차원 bge-m3 지원)
 - ✅ 실제 KNUE Policy Hub 저장소 (100개 마크다운 파일) 처리 가능한 Git 감시자 구현
-- ✅ TDD 방법론 적용으로 모든 기능 테스트 커버리지 확보
-- ✅ 한국어 정책 문서 UTF-8 처리 검증 완료
+- ✅ 포괄적 Markdown 전처리 파이프라인 (frontmatter 제거, 제목 추출, 메타데이터 생성)
+- ✅ TDD 방법론 적용으로 모든 기능 테스트 커버리지 확보 (37개 테스트 통과)
+- ✅ 한국어 정책 문서 UTF-8 처리 및 토큰 길이 검증 완료
 
 각 단계마다 테스트 실행 결과와 실제 동작 확인을 통해 진행 상황을 검증하고 있습니다.

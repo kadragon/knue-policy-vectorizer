@@ -1,0 +1,85 @@
+{
+  // Python interpreter and environment
+  "python.defaultInterpreter": "./.venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "python.terminal.activateEnvInCurrentTerminal": true,
+
+  // Test discovery and configuration
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["tests", "--verbose", "--tb=short"],
+  "python.testing.cwd": "${workspaceFolder}",
+  "python.testing.autoTestDiscoverOnSaveEnabled": true,
+
+  // Python path configuration for imports
+  "python.analysis.extraPaths": ["./src"],
+  "python.envFile": "${workspaceFolder}/.env",
+
+  // Code formatting and linting
+  "python.formatting.provider": "black",
+  "python.formatting.blackArgs": ["--line-length=88", "--target-version=py39"],
+  "python.linting.enabled": true,
+  "python.linting.mypyEnabled": true,
+  "python.linting.flake8Enabled": false,
+  "python.linting.pylintEnabled": false,
+
+  // Import sorting
+  "python.sortImports.args": ["--profile=black", "--line-length=88"],
+
+  // Format on save
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit"
+  },
+
+  // File associations and exclusions
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.mypy_cache": true,
+    "**/node_modules": true,
+    ".venv": false
+  },
+
+  // Terminal configuration
+  "terminal.integrated.env.osx": {
+    "PYTHONPATH": "${workspaceFolder}/src"
+  },
+  "terminal.integrated.env.linux": {
+    "PYTHONPATH": "${workspaceFolder}/src"
+  },
+
+  // Language-specific settings
+  "[python]": {
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.rulers": [88],
+    "editor.defaultFormatter": "ms-python.autopep8"
+  },
+
+  // Test output and debugging
+  "python.testing.promptToConfigure": false,
+  "python.testing.debugPort": 3000,
+
+  // Docker integration (for our services)
+  "files.associations": {
+    "docker-compose*.yml": "dockercompose",
+    "*.yml": "yaml"
+  },
+
+  // Markdown settings
+  "[markdown]": {
+    "editor.wordWrap": "on",
+    "editor.rulers": [100]
+  },
+
+  // Git settings
+  "git.ignoreLimitWarning": true,
+
+  // Project-specific environment variables
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.typeCheckingMode": "basic",
+
+  // Additional test runner settings
+  "python.testing.openOutputPanel": "openOnTestStart"
+}
