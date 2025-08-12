@@ -130,13 +130,24 @@ class GitWatcher:
         Returns:
             List of relative file paths for markdown files
         """
+        # Ensure repository is initialized
+        _ = self.repo
+        
         markdown_files = []
         
         # Use pathlib to find all .md files recursively
         for md_file in self.cache_dir.glob('**/*.md'):
             # Get relative path from cache directory
             relative_path = md_file.relative_to(self.cache_dir)
-            markdown_files.append(str(relative_path))
+            relative_path_str = str(relative_path)
+            
+            # Exclude README*.md files
+            filename = md_file.name
+            if filename.upper().startswith('README'):
+                self.logger.debug("Excluding README file", file_path=relative_path_str)
+                continue
+                
+            markdown_files.append(relative_path_str)
         
         self.logger.info("Found markdown files", count=len(markdown_files))
         self.logger.debug("Markdown files", files=markdown_files)
@@ -169,6 +180,12 @@ class GitWatcher:
                 # Only process markdown files
                 file_path = item.a_path or item.b_path
                 if not file_path or not file_path.endswith('.md'):
+                    continue
+                
+                # Exclude README*.md files
+                filename = Path(file_path).name
+                if filename.upper().startswith('README'):
+                    self.logger.debug("Excluding README file from changes", file_path=file_path)
                     continue
                 
                 if item.change_type == 'A':  # Added

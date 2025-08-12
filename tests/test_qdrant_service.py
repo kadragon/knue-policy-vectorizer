@@ -198,7 +198,13 @@ class TestQdrantServicePointOperations:
             "commit_hash": "abc123",
             "github_url": "https://github.com/test/repo/blob/main/test/document.md",
             "content_length": 1500,
-            "estimated_tokens": 375
+            "estimated_tokens": 375,
+            "content": "Test document content",
+            "chunk_index": 0,
+            "total_chunks": 1,
+            "section_title": "Test Document",
+            "chunk_tokens": 375,
+            "is_chunk": False
         }
     
     @patch('src.qdrant_service.QdrantClient')
@@ -424,7 +430,13 @@ class TestQdrantServiceErrorHandling:
             "commit_hash": "abc123",
             "github_url": "https://github.com/test/repo/blob/main/test/document.md",
             "content_length": 1500,
-            "estimated_tokens": 375
+            "estimated_tokens": 375,
+            "content": "Test document content",
+            "chunk_index": 0,
+            "total_chunks": 1,
+            "section_title": "Test Document",
+            "chunk_tokens": 375,
+            "is_chunk": False
         }
         
         with pytest.raises(QdrantError, match="Failed to upsert point"):
@@ -476,7 +488,13 @@ class TestQdrantServiceIntegration:
             "commit_hash": "abc123",
             "github_url": "https://github.com/test/repo/blob/main/docs/doc1.md",
             "content_length": 1500,
-            "estimated_tokens": 375
+            "estimated_tokens": 375,
+            "content": "Test document content",
+            "chunk_index": 0,
+            "total_chunks": 1,
+            "section_title": "Document 1",
+            "chunk_tokens": 375,
+            "is_chunk": False
         }
         
         result = service.upsert_point("doc1", vector, metadata)

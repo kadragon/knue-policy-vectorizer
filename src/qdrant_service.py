@@ -160,7 +160,8 @@ class QdrantService:
         """Validate required metadata fields"""
         required_fields = [
             "document_id", "title", "file_path", "last_modified",
-            "commit_hash", "github_url", "content_length", "estimated_tokens"
+            "commit_hash", "github_url", "content_length", "estimated_tokens", "content",
+            "chunk_index", "total_chunks", "section_title", "chunk_tokens", "is_chunk"
         ]
         
         missing_fields = [field for field in required_fields if field not in metadata]
@@ -416,3 +417,41 @@ class QdrantService:
         except Exception as e:
             logger.error("Failed to get collection info", error=str(e))
             raise QdrantError(f"Failed to get collection info: {e}")
+    
+    def delete_document_chunks(self, base_document_id: str) -> bool:
+        """
+        Delete all chunks for a document (including the base document and all chunks)
+        
+        Args:
+            base_document_id: Base document ID (without chunk suffix)
+            
+        Returns:
+            True if operation successful
+            
+        Raises:
+            QdrantError: If deletion fails
+        """
+        try:
+            # Try to delete the main document first
+            main_ids_to_delete = [base_document_id]
+            
+            # Generate potential chunk IDs (assume reasonable maximum of 50 chunks)
+            for i in range(50):
+                chunk_id = f"{base_document_id}_chunk_{i}"
+                main_ids_to_delete.append(chunk_id)
+            
+            # Delete all potential IDs (Qdrant will ignore non-existent IDs)
+            result = self.client.delete(
+                collection_name=self.collection_name,
+                points_selector=main_ids_to_delete
+            )
+            
+            logger.info("Deleted document and chunks", 
+                       base_document_id=base_document_id)
+            return result.status == UpdateStatus.COMPLETED
+                
+        except Exception as e:
+            logger.error("Failed to delete document chunks", 
+                        base_document_id=base_document_id, 
+                        error=str(e))
+            raise QdrantError(f"Failed to delete document chunks for {base_document_id}: {e}")
