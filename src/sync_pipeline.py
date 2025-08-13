@@ -51,7 +51,7 @@ class SyncPipeline:
     def markdown_processor(self) -> MarkdownProcessor:
         """Get or create MarkdownProcessor instance."""
         if not hasattr(self, '_markdown_processor'):
-            self._markdown_processor = MarkdownProcessor()
+            self._markdown_processor = MarkdownProcessor(config=self.config)
         return self._markdown_processor
     
     @property
@@ -217,7 +217,7 @@ class SyncPipeline:
     def _process_chunks(self, chunks: List[Dict], processed: Dict, file_path: str, 
                        commit_info: Dict[str, str], github_url: str) -> None:
         """
-        Process a list of chunks and upsert them to Qdrant.
+        Process a list of chunks and upsert them to Qdrant using batch operations.
         
         Args:
             chunks: List of chunk dictionaries with content, chunk_index, section_title, tokens
@@ -230,10 +230,16 @@ class SyncPipeline:
                          file_path=file_path, 
                          chunk_count=len(chunks))
         
-        # Process each chunk as a separate document
+        # Prepare data for batch processing
+        chunk_texts = []
+        points_data = []
+        base_id = self.markdown_processor.calculate_document_id(file_path)
+        
+        # First pass: prepare all chunk data and collect texts for batch embedding
         for chunk in chunks:
+            chunk_texts.append(chunk['content'])
+            
             # Generate unique UUID for chunk based on file path and chunk index
-            base_id = self.markdown_processor.calculate_document_id(file_path)
             chunk_data = f"{base_id}_chunk_{chunk['chunk_index']}"
             chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, chunk_data))
             
@@ -256,15 +262,28 @@ class SyncPipeline:
                 'is_chunk': True
             })
             
-            # Generate embedding for chunk
-            embedding = self.embedding_service.generate_embedding(chunk['content'])
-            
-            # Upsert chunk to Qdrant
-            self.qdrant_service.upsert_point(
-                point_id=chunk_id,
-                vector=embedding,
-                metadata=metadata
-            )
+            # Store prepared point data (will add embedding vector later)
+            points_data.append({
+                'point_id': chunk_id,
+                'metadata': metadata
+            })
+        
+        # Generate embeddings for all chunks in batch
+        self.logger.debug("Generating batch embeddings", chunk_count=len(chunk_texts))
+        embeddings = self.embedding_service.generate_embeddings_batch(chunk_texts)
+        
+        # Second pass: combine embeddings with point data
+        batch_points = []
+        for i, embedding in enumerate(embeddings):
+            batch_points.append({
+                'point_id': points_data[i]['point_id'],
+                'vector': embedding,
+                'metadata': points_data[i]['metadata']
+            })
+        
+        # Batch upsert all chunks to Qdrant
+        self.logger.debug("Batch upserting chunks", chunk_count=len(batch_points))
+        self.qdrant_service.upsert_points_batch(batch_points)
     
     def sync(self) -> Dict[str, Any]:
         """Perform incremental synchronization."""

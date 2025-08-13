@@ -14,7 +14,7 @@ from logger import setup_logger
 class MarkdownProcessor:
     """Processes markdown documents for vectorization."""
     
-    def __init__(self):
+    def __init__(self, config=None):
         """Initialize the MarkdownProcessor."""
         self.logger = setup_logger("INFO", "MarkdownProcessor")
         
@@ -22,9 +22,17 @@ class MarkdownProcessor:
         # This is more conservative to ensure we chunk documents that might exceed limits
         self.chars_per_token = 2
         
-        # Content limits
-        self.max_chars = 30000  # Maximum character count
-        self.max_tokens = 8192  # Maximum token count for bge-m3 model
+        # Content limits - use config if provided, otherwise defaults
+        if config:
+            self.max_chars = config.max_document_chars
+            self.max_tokens = config.max_tokens  # Maximum token count for bge-m3 model
+            self.chunk_threshold = config.chunk_threshold  # Chunking threshold for better semantic search
+            self.chunk_overlap = config.chunk_overlap  # Overlap tokens between chunks
+        else:
+            self.max_chars = 30000  # Maximum character count
+            self.max_tokens = 8192  # Maximum token count for bge-m3 model
+            self.chunk_threshold = 800  # Chunking threshold for better semantic search
+            self.chunk_overlap = 200  # Overlap tokens between chunks
     
     def remove_frontmatter(self, content: str) -> str:
         """Remove YAML or TOML frontmatter from markdown content.
@@ -234,7 +242,7 @@ class MarkdownProcessor:
                               max_chars=self.max_chars)
             return False, message
         
-        # Check token limit
+        # Check token limit (only fail if exceeding embedding service limit)
         if token_estimate > self.max_tokens:
             message = f"Content too long: ~{token_estimate} tokens (max: {self.max_tokens})"
             self.logger.warning("Token count validation failed", 
@@ -419,25 +427,25 @@ class MarkdownProcessor:
         return sub_chunks
     
     def chunk_markdown_content(self, content: str, max_tokens: int = None) -> List[Dict[str, Any]]:
-        """Intelligently chunk markdown content with 800/200 nesting strategy.
+        """Intelligently chunk markdown content with configurable chunking strategy.
         
         This implements a sophisticated chunking strategy:
-        - Primary chunks: up to 800 tokens (configurable)
-        - Nested overlap: 200 tokens from previous chunk for context continuity
+        - Primary chunks: up to chunk_threshold tokens (default 800)
+        - Nested overlap: chunk_overlap tokens from previous chunk for context continuity
         - Respects markdown structure (headers, lists, code blocks)
         - Maintains semantic boundaries
         
         Args:
             content: Markdown content to chunk
-            max_tokens: Maximum tokens per primary chunk (defaults to 800)
+            max_tokens: Maximum tokens per primary chunk (defaults to self.chunk_threshold)
             
         Returns:
             List of chunks with metadata and overlap information
         """
         if max_tokens is None:
-            max_tokens = 800  # Primary chunk size
+            max_tokens = self.chunk_threshold  # Use configured chunk threshold
             
-        overlap_tokens = 200  # Context overlap size
+        overlap_tokens = self.chunk_overlap  # Use configured overlap size
         
         if not content.strip():
             return []
@@ -684,10 +692,10 @@ class MarkdownProcessor:
             # Step 3: Clean content
             clean_content = self.clean_content(content_no_frontmatter)
             
-            # Step 4: Check if content needs chunking
+            # Step 4: Check if content needs chunking (use chunk_threshold, not max_tokens)
             estimated_tokens = self.estimate_token_count(clean_content)
             
-            if estimated_tokens > self.max_tokens:
+            if estimated_tokens > self.chunk_threshold:
                 # Content is too long, chunk it
                 chunks = self.chunk_markdown_content(clean_content)
                 self.logger.info("Document chunked due to length", 
