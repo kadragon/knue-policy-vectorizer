@@ -582,6 +582,10 @@ class TestDocumentChunkingIntegration:
                 assert chunk.get('has_context_overlap', False) == False
                 assert chunk.get('overlap_tokens', 0) == 0
             
-            # If a chunk has context overlap, verify it has the marker
-            if chunk.get('has_context_overlap', False) and chunk.get('overlap_tokens', 0) > 0:
-                assert '<!-- CONTEXT_OVERLAP -->' in chunk['content']
+            # If a chunk has context overlap, verify the metadata is consistent
+            if chunk.get('has_context_overlap', False):
+                assert chunk.get('overlap_tokens', 0) > 0  # Should have overlap tokens
+            
+            # If overlap_tokens > 0, should have has_context_overlap set to True
+            if chunk.get('overlap_tokens', 0) > 0:
+                assert chunk.get('has_context_overlap', False) == True

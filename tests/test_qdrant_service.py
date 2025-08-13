@@ -508,3 +508,122 @@ class TestQdrantServiceIntegration:
         # Delete
         result = service.delete_point("doc1")
         assert result is True
+
+
+class TestQdrantServiceDocumentDeletion:
+    """Test document chunk deletion operations"""
+    
+    @patch('src.qdrant_service.QdrantClient')
+    def test_find_document_chunks_success(self, mock_qdrant_client):
+        """Test successful document chunk finding"""
+        mock_client = Mock()
+        mock_qdrant_client.return_value = mock_client
+        
+        # Mock scroll results - single batch with all chunks
+        mock_chunks = [Mock(id="doc1"), Mock(id="doc1_chunk_0"), Mock(id="doc1_chunk_1")]
+        mock_client.scroll.return_value = (mock_chunks, None)
+        
+        service = QdrantService()
+        result = service._find_document_chunks("doc1")
+        
+        assert result == ["doc1", "doc1_chunk_0", "doc1_chunk_1"]
+        mock_client.scroll.assert_called_once()
+    
+    @patch('src.qdrant_service.QdrantClient')
+    def test_find_document_chunks_multiple_batches(self, mock_qdrant_client):
+        """Test finding chunks across multiple scroll batches"""
+        mock_client = Mock()
+        mock_qdrant_client.return_value = mock_client
+        
+        # Mock scroll results - multiple batches
+        mock_scroll_results = [
+            ([Mock(id="doc1"), Mock(id="doc1_chunk_0")], "next_offset"),
+            ([Mock(id="doc1_chunk_1"), Mock(id="doc1_chunk_2")], None)  # Last batch
+        ]
+        mock_client.scroll.side_effect = mock_scroll_results
+        
+        service = QdrantService()
+        result = service._find_document_chunks("doc1")
+        
+        assert result == ["doc1", "doc1_chunk_0", "doc1_chunk_1", "doc1_chunk_2"]
+        assert mock_client.scroll.call_count == 2
+    
+    @patch('src.qdrant_service.QdrantClient')
+    def test_find_document_chunks_no_results(self, mock_qdrant_client):
+        """Test finding chunks when none exist"""
+        mock_client = Mock()
+        mock_qdrant_client.return_value = mock_client
+        mock_client.scroll.return_value = ([], None)
+        
+        service = QdrantService()
+        result = service._find_document_chunks("nonexistent_doc")
+        
+        assert result == []
+    
+    @patch('src.qdrant_service.QdrantClient')
+    def test_find_document_chunks_limit_exceeded(self, mock_qdrant_client):
+        """Test chunk finding with safety limit"""
+        mock_client = Mock()
+        mock_qdrant_client.return_value = mock_client
+        
+        # Generate more chunks than the limit
+        from src.qdrant_service import MAX_CHUNK_DELETION_LIMIT
+        chunks = [Mock(id=f"doc1_chunk_{i}") for i in range(MAX_CHUNK_DELETION_LIMIT + 100)]
+        mock_client.scroll.return_value = (chunks, None)
+        
+        service = QdrantService()
+        result = service._find_document_chunks("doc1")
+        
+        assert len(result) == MAX_CHUNK_DELETION_LIMIT
+    
+    @patch('src.qdrant_service.QdrantClient')
+    def test_delete_document_chunks_success(self, mock_qdrant_client):
+        """Test successful document chunks deletion"""
+        mock_client = Mock()
+        mock_qdrant_client.return_value = mock_client
+        
+        # Mock finding chunks
+        mock_client.scroll.return_value = (
+            [Mock(id="doc1"), Mock(id="doc1_chunk_0"), Mock(id="doc1_chunk_1")], 
+            None
+        )
+        
+        # Mock deletion
+        mock_client.delete.return_value = UpdateResult(
+            operation_id=1,
+            status=UpdateStatus.COMPLETED
+        )
+        
+        service = QdrantService()
+        result = service.delete_document_chunks("doc1")
+        
+        assert result is True
+        mock_client.delete.assert_called_once_with(
+            collection_name="knue_policies",
+            points_selector=["doc1", "doc1_chunk_0", "doc1_chunk_1"]
+        )
+    
+    @patch('src.qdrant_service.QdrantClient')
+    def test_delete_document_chunks_no_chunks(self, mock_qdrant_client):
+        """Test deletion when no chunks exist"""
+        mock_client = Mock()
+        mock_qdrant_client.return_value = mock_client
+        mock_client.scroll.return_value = ([], None)
+        
+        service = QdrantService()
+        result = service.delete_document_chunks("nonexistent_doc")
+        
+        assert result is True
+        mock_client.delete.assert_not_called()
+    
+    @patch('src.qdrant_service.QdrantClient')
+    def test_delete_document_chunks_failure(self, mock_qdrant_client):
+        """Test deletion failure handling"""
+        mock_client = Mock()
+        mock_qdrant_client.return_value = mock_client
+        mock_client.scroll.side_effect = Exception("Scroll failed")
+        
+        service = QdrantService()
+        
+        with pytest.raises(QdrantError, match="Failed to delete document chunks"):
+            service.delete_document_chunks("doc1")

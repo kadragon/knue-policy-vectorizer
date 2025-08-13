@@ -10,12 +10,16 @@ import structlog
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     VectorParams, Distance, CollectionStatus,
-    PointStruct, UpdateStatus, UpdateResult, ScoredPoint
+    PointStruct, UpdateStatus, UpdateResult, ScoredPoint,
+    Filter, FieldCondition, MatchValue
 )
 from qdrant_client.http.exceptions import ResponseHandlingException
 
 
 logger = structlog.get_logger(__name__)
+
+# Configuration constants
+MAX_CHUNK_DELETION_LIMIT = 1000  # Maximum chunks to consider for deletion safety
 
 
 class QdrantError(Exception):
@@ -418,9 +422,92 @@ class QdrantService:
             logger.error("Failed to get collection info", error=str(e))
             raise QdrantError(f"Failed to get collection info: {e}")
     
+    def _find_document_chunks(self, base_document_id: str) -> List[str]:
+        """
+        Find all chunk IDs for a document using Qdrant scroll API
+        
+        Args:
+            base_document_id: Base document ID to search for
+            
+        Returns:
+            List of point IDs that belong to this document
+            
+        Raises:
+            QdrantError: If search fails
+        """
+        try:
+            point_ids = []
+            
+            # Use scroll to iterate through all points with matching document_id
+            scroll_filter = Filter(
+                must=[
+                    FieldCondition(
+                        key="document_id",
+                        match=MatchValue(value=base_document_id)
+                    )
+                ]
+            )
+            
+            offset = None
+            limit = 100  # Process in batches of 100
+            
+            while True:
+                scroll_result = self.client.scroll(
+                    collection_name=self.collection_name,
+                    scroll_filter=scroll_filter,
+                    limit=limit,
+                    offset=offset,
+                    with_payload=False,  # We only need IDs
+                    with_vectors=False   # We only need IDs
+                )
+                
+                if not scroll_result[0]:  # No more points
+                    break
+                
+                # Extract point IDs
+                batch_ids = [point.id for point in scroll_result[0]]
+                point_ids.extend(batch_ids)
+                
+                # Check safety limit
+                if len(point_ids) > MAX_CHUNK_DELETION_LIMIT:
+                    logger.warning(
+                        "Document has excessive chunks, limiting deletion",
+                        base_document_id=base_document_id,
+                        found_chunks=len(point_ids),
+                        limit=MAX_CHUNK_DELETION_LIMIT
+                    )
+                    point_ids = point_ids[:MAX_CHUNK_DELETION_LIMIT]
+                    break
+                
+                # Update offset for next iteration
+                offset = scroll_result[1]
+                
+                # If offset is None, we're done (no more results)
+                if offset is None:
+                    break
+            
+            logger.debug(
+                "Found document chunks",
+                base_document_id=base_document_id,
+                chunk_count=len(point_ids)
+            )
+            
+            return point_ids
+            
+        except Exception as e:
+            logger.error(
+                "Failed to find document chunks",
+                base_document_id=base_document_id,
+                error=str(e)
+            )
+            raise QdrantError(f"Failed to find document chunks for {base_document_id}: {e}")
+    
     def delete_document_chunks(self, base_document_id: str) -> bool:
         """
         Delete all chunks for a document (including the base document and all chunks)
+        
+        This method now uses Qdrant's scroll API to find all chunks belonging to a document
+        rather than assuming a fixed maximum number of chunks.
         
         Args:
             base_document_id: Base document ID (without chunk suffix)
@@ -432,22 +519,23 @@ class QdrantService:
             QdrantError: If deletion fails
         """
         try:
-            # Try to delete the main document first
-            main_ids_to_delete = [base_document_id]
+            # Find all point IDs that belong to this document
+            point_ids_to_delete = self._find_document_chunks(base_document_id)
             
-            # Generate potential chunk IDs (assume reasonable maximum of 50 chunks)
-            for i in range(50):
-                chunk_id = f"{base_document_id}_chunk_{i}"
-                main_ids_to_delete.append(chunk_id)
+            if not point_ids_to_delete:
+                logger.info("No chunks found for document", 
+                           base_document_id=base_document_id)
+                return True
             
-            # Delete all potential IDs (Qdrant will ignore non-existent IDs)
+            # Delete all found IDs in batch
             result = self.client.delete(
                 collection_name=self.collection_name,
-                points_selector=main_ids_to_delete
+                points_selector=point_ids_to_delete
             )
             
             logger.info("Deleted document and chunks", 
-                       base_document_id=base_document_id)
+                       base_document_id=base_document_id,
+                       chunks_deleted=len(point_ids_to_delete))
             return result.status == UpdateStatus.COMPLETED
                 
         except Exception as e:

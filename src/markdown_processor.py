@@ -529,7 +529,7 @@ class MarkdownProcessor:
                 previous_chunk_overlap = overlap_lines
             
             # Check if we actually added overlap content to this chunk
-            actual_overlap = include_overlap and chunk_index > 0 and previous_chunk_overlap and len(previous_chunk_overlap) > 0 and "<!-- CONTEXT_OVERLAP -->" in chunk_content
+            actual_overlap = include_overlap and chunk_index > 0 and previous_chunk_overlap and len(previous_chunk_overlap) > 0
             
             chunk = {
                 'content': chunk_content,

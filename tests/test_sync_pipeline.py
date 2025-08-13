@@ -191,6 +191,10 @@ class TestSyncPipelineMainSync:
         
         # Mock file processing
         mock_git.get_file_content.return_value = "# New Policy\nContent here"
+        mock_git.get_file_commit_info.return_value = {
+            'commit_sha': 'abc123',
+            'commit_date': '2024-01-01T00:00:00Z'
+        }
         mock_md.process_markdown.return_value = {
             'title': 'New Policy',
             'content': 'Processed content',
@@ -277,6 +281,15 @@ class TestSyncPipelineMainSync:
             return f"# Content for {file_path}\nSome content here"
         
         mock_git.get_file_content.side_effect = mock_get_file_content
+        
+        # Mock file commit info
+        def mock_get_file_commit_info(file_path):
+            return {
+                'commit_sha': f'sha_for_{file_path}',
+                'commit_date': '2024-01-01T00:00:00Z'
+            }
+        
+        mock_git.get_file_commit_info.side_effect = mock_get_file_commit_info
         
         # Mock processing results
         def mock_process_markdown(content, file_path):
@@ -371,6 +384,10 @@ class TestSyncPipelineErrorHandling:
             []            # deleted
         )
         mock_git.get_file_content.return_value = "Test content"
+        mock_git.get_file_commit_info.return_value = {
+            'commit_sha': 'abc123',
+            'commit_date': '2024-01-01T00:00:00Z'
+        }
         mock_md.process_markdown.return_value = {
             'title': 'Test',
             'content': 'Test content',
@@ -411,6 +428,10 @@ class TestSyncPipelineErrorHandling:
             []            # deleted
         )
         mock_git.get_file_content.return_value = "Test content"
+        mock_git.get_file_commit_info.return_value = {
+            'commit_sha': 'abc123',
+            'commit_date': '2024-01-01T00:00:00Z'
+        }
         mock_md.process_markdown.return_value = {
             'title': 'Test',
             'content': 'Test content',
@@ -454,6 +475,15 @@ class TestSyncPipelineReindexAll:
             return f"# Content for {file_path}"
         
         mock_git.get_file_content.side_effect = mock_get_file_content
+        
+        # Mock file commit info
+        def mock_get_file_commit_info(file_path):
+            return {
+                'commit_sha': f'sha_for_{file_path}',
+                'commit_date': '2024-01-01T00:00:00Z'
+            }
+        
+        mock_git.get_file_commit_info.side_effect = mock_get_file_commit_info
         
         def mock_process_markdown(content, file_path):
             return {

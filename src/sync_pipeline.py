@@ -144,8 +144,8 @@ class SyncPipeline:
                     raise Exception(processed['validation_error'])
                 
                 # Get commit info and GitHub URL
-                current_commit = self.git_watcher.get_current_commit()
-                commit_info = {'sha': current_commit}
+                file_commit_info = self.git_watcher.get_file_commit_info(file_path)
+                commit_info = {'sha': file_commit_info['commit_sha']}
                 github_url = f"{self.config.repo_url.replace('.git', '')}/blob/{self.config.branch}/{file_path}"
                 
                 # Calculate document ID (used for both chunked and single documents)
@@ -154,45 +154,7 @@ class SyncPipeline:
                 # Handle chunked content
                 if processed.get('needs_chunking', False):
                     chunks = processed['chunks']
-                    self.logger.info("Processing chunked document", 
-                                   file_path=file_path, 
-                                   chunk_count=len(chunks))
-                    
-                    # Process each chunk as a separate document
-                    for chunk in chunks:
-                        # Generate unique UUID for chunk based on file path and chunk index
-                        base_id = self.markdown_processor.calculate_document_id(file_path)
-                        chunk_data = f"{base_id}_chunk_{chunk['chunk_index']}"
-                        chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, chunk_data))
-                        
-                        # Generate metadata for chunk
-                        metadata = self.markdown_processor.generate_metadata(
-                            chunk['content'], 
-                            processed['title'], 
-                            processed['filename'],
-                            file_path,
-                            commit_info,
-                            github_url
-                        )
-                        
-                        # Add chunk-specific metadata
-                        metadata.update({
-                            'chunk_index': chunk['chunk_index'],
-                            'total_chunks': len(chunks),
-                            'section_title': chunk['section_title'],
-                            'chunk_tokens': chunk['tokens'],
-                            'is_chunk': True
-                        })
-                        
-                        # Generate embedding for chunk
-                        embedding = self.embedding_service.generate_embedding(chunk['content'])
-                        
-                        # Upsert chunk to Qdrant
-                        self.qdrant_service.upsert_point(
-                            point_id=chunk_id,
-                            vector=embedding,
-                            metadata=metadata
-                        )
+                    self._process_chunks(chunks, processed, file_path, commit_info, github_url)
                 else:
                     # Single document processing
                     metadata = self.markdown_processor.generate_metadata(
@@ -230,45 +192,7 @@ class SyncPipeline:
                                               error=str(e))
                             # Force chunk the content and process as chunks
                             chunks = self.markdown_processor.chunk_markdown_content(processed['content'])
-                            self.logger.info("Force-chunked document", 
-                                           file_path=file_path, 
-                                           chunk_count=len(chunks))
-                            
-                            # Process each chunk as a separate document
-                            for chunk in chunks:
-                                # Generate unique UUID for chunk
-                                base_id = self.markdown_processor.calculate_document_id(file_path)
-                                chunk_data = f"{base_id}_chunk_{chunk['chunk_index']}"
-                                chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, chunk_data))
-                                
-                                # Generate metadata for chunk
-                                chunk_metadata = self.markdown_processor.generate_metadata(
-                                    chunk['content'], 
-                                    processed['title'], 
-                                    processed['filename'],
-                                    file_path,
-                                    commit_info,
-                                    github_url
-                                )
-                                
-                                # Add chunk-specific metadata
-                                chunk_metadata.update({
-                                    'chunk_index': chunk['chunk_index'],
-                                    'total_chunks': len(chunks),
-                                    'section_title': chunk['section_title'],
-                                    'chunk_tokens': chunk['tokens'],
-                                    'is_chunk': True
-                                })
-                                
-                                # Generate embedding for chunk
-                                chunk_embedding = self.embedding_service.generate_embedding(chunk['content'])
-                                
-                                # Upsert chunk to Qdrant
-                                self.qdrant_service.upsert_point(
-                                    point_id=chunk_id,
-                                    vector=chunk_embedding,
-                                    metadata=chunk_metadata
-                                )
+                            self._process_chunks(chunks, processed, file_path, commit_info, github_url)
                         else:
                             # Re-raise if it's a different error
                             raise
@@ -289,6 +213,58 @@ class SyncPipeline:
                 'status': 'failed',
                 'error': str(e)
             }
+    
+    def _process_chunks(self, chunks: List[Dict], processed: Dict, file_path: str, 
+                       commit_info: Dict[str, str], github_url: str) -> None:
+        """
+        Process a list of chunks and upsert them to Qdrant.
+        
+        Args:
+            chunks: List of chunk dictionaries with content, chunk_index, section_title, tokens
+            processed: Processed markdown data containing title, filename
+            file_path: Path to the file being processed
+            commit_info: Git commit information
+            github_url: GitHub URL for the file
+        """
+        self.logger.info("Processing chunked document", 
+                         file_path=file_path, 
+                         chunk_count=len(chunks))
+        
+        # Process each chunk as a separate document
+        for chunk in chunks:
+            # Generate unique UUID for chunk based on file path and chunk index
+            base_id = self.markdown_processor.calculate_document_id(file_path)
+            chunk_data = f"{base_id}_chunk_{chunk['chunk_index']}"
+            chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, chunk_data))
+            
+            # Generate metadata for chunk
+            metadata = self.markdown_processor.generate_metadata(
+                chunk['content'], 
+                processed['title'], 
+                processed['filename'],
+                file_path,
+                commit_info,
+                github_url
+            )
+            
+            # Add chunk-specific metadata
+            metadata.update({
+                'chunk_index': chunk['chunk_index'],
+                'total_chunks': len(chunks),
+                'section_title': chunk['section_title'],
+                'chunk_tokens': chunk['tokens'],
+                'is_chunk': True
+            })
+            
+            # Generate embedding for chunk
+            embedding = self.embedding_service.generate_embedding(chunk['content'])
+            
+            # Upsert chunk to Qdrant
+            self.qdrant_service.upsert_point(
+                point_id=chunk_id,
+                vector=embedding,
+                metadata=metadata
+            )
     
     def sync(self) -> Dict[str, Any]:
         """Perform incremental synchronization."""
