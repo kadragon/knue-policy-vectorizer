@@ -22,17 +22,16 @@ class MarkdownProcessor:
         # This is more conservative to ensure we chunk documents that might exceed limits
         self.chars_per_token = 2
         
-        # Content limits - use config if provided, otherwise defaults
-        if config:
-            self.max_chars = config.max_document_chars
-            self.max_tokens = config.max_tokens  # Maximum token count for bge-m3 model
-            self.chunk_threshold = config.chunk_threshold  # Chunking threshold for better semantic search
-            self.chunk_overlap = config.chunk_overlap  # Overlap tokens between chunks
-        else:
-            self.max_chars = 30000  # Maximum character count
-            self.max_tokens = 8192  # Maximum token count for bge-m3 model
-            self.chunk_threshold = 800  # Chunking threshold for better semantic search
-            self.chunk_overlap = 200  # Overlap tokens between chunks
+        # Use provided config or create a default one
+        if config is None:
+            from config import Config
+            config = Config()
+        
+        # Content limits
+        self.max_chars = config.max_document_chars
+        self.max_tokens = config.max_tokens
+        self.chunk_threshold = config.chunk_threshold
+        self.chunk_overlap = config.chunk_overlap
     
     def remove_frontmatter(self, content: str) -> str:
         """Remove YAML or TOML frontmatter from markdown content.

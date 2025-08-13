@@ -273,13 +273,14 @@ class SyncPipeline:
         embeddings = self.embedding_service.generate_embeddings_batch(chunk_texts)
         
         # Second pass: combine embeddings with point data
-        batch_points = []
-        for i, embedding in enumerate(embeddings):
-            batch_points.append({
-                'point_id': points_data[i]['point_id'],
+        batch_points = [
+            {
+                'point_id': point_data['point_id'],
                 'vector': embedding,
-                'metadata': points_data[i]['metadata']
-            })
+                'metadata': point_data['metadata'],
+            }
+            for point_data, embedding in zip(points_data, embeddings)
+        ]
         
         # Batch upsert all chunks to Qdrant
         self.logger.debug("Batch upserting chunks", chunk_count=len(batch_points))
