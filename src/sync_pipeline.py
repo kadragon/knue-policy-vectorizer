@@ -1,6 +1,8 @@
 """Main synchronization pipeline for KNUE Policy Hub to Qdrant."""
 import click
 import structlog
+import uuid
+import hashlib
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 
@@ -120,11 +122,9 @@ class SyncPipeline:
         
         try:
             if action == "delete":
-                # For deleted files, we only need the document ID
-                doc_id = self.markdown_processor.calculate_document_id(
-                    file_path, content=""
-                )
-                self.qdrant_service.delete_point(doc_id)
+                # For deleted files, delete all chunks
+                doc_id = self.markdown_processor.calculate_document_id(file_path)
+                self.qdrant_service.delete_document_chunks(doc_id)
                 return {
                     'file': file_path,
                     'action': 'delete',
@@ -139,27 +139,63 @@ class SyncPipeline:
                 # Process markdown
                 processed = self.markdown_processor.process_markdown(content, file_path)
                 
-                # Check if content is valid (not too long)
-                if not processed['is_valid']:
+                # Check if content is valid
+                if not processed['is_valid'] and not processed.get('needs_chunking', False):
                     raise Exception(processed['validation_error'])
                 
-                # Generate document ID and metadata
-                doc_id = self.markdown_processor.calculate_document_id(file_path, processed['content'])
-                metadata = self.markdown_processor.generate_metadata(
-                    processed['content'], 
-                    processed['title'], 
-                    processed['filename']
-                )
+                # Get commit info and GitHub URL
+                file_commit_info = self.git_watcher.get_file_commit_info(file_path)
+                commit_info = {'sha': file_commit_info['commit_sha']}
+                github_url = f"{self.config.repo_url.replace('.git', '')}/blob/{self.config.branch}/{file_path}"
                 
-                # Generate embedding
-                embedding = self.embedding_service.generate_embedding(processed['content'])
+                # Calculate document ID (used for both chunked and single documents)
+                doc_id = self.markdown_processor.calculate_document_id(file_path)
                 
-                # Upsert to Qdrant
-                self.qdrant_service.upsert_point(
-                    point_id=doc_id,
-                    vector=embedding,
-                    payload=metadata
-                )
+                # Handle chunked content
+                if processed.get('needs_chunking', False):
+                    chunks = processed['chunks']
+                    self._process_chunks(chunks, processed, file_path, commit_info, github_url)
+                else:
+                    # Single document processing
+                    metadata = self.markdown_processor.generate_metadata(
+                        processed['content'], 
+                        processed['title'], 
+                        processed['filename'],
+                        file_path,
+                        commit_info,
+                        github_url
+                    )
+                    
+                    # Add non-chunk metadata
+                    metadata.update({
+                        'chunk_index': 0,
+                        'total_chunks': 1,
+                        'section_title': '',
+                        'chunk_tokens': processed['estimated_tokens'],
+                        'is_chunk': False
+                    })
+                    
+                    # Generate embedding with fallback to chunking if token limit exceeded
+                    try:
+                        embedding = self.embedding_service.generate_embedding(processed['content'])
+                        
+                        # Upsert to Qdrant
+                        self.qdrant_service.upsert_point(
+                            point_id=doc_id,
+                            vector=embedding,
+                            metadata=metadata
+                        )
+                    except ValueError as e:
+                        if "exceeds maximum token limit" in str(e):
+                            self.logger.warning("Single document exceeded token limit, forcing chunking", 
+                                              file_path=file_path,
+                                              error=str(e))
+                            # Force chunk the content and process as chunks
+                            chunks = self.markdown_processor.chunk_markdown_content(processed['content'])
+                            self._process_chunks(chunks, processed, file_path, commit_info, github_url)
+                        else:
+                            # Re-raise if it's a different error
+                            raise
                 
                 return {
                     'file': file_path,
@@ -177,6 +213,58 @@ class SyncPipeline:
                 'status': 'failed',
                 'error': str(e)
             }
+    
+    def _process_chunks(self, chunks: List[Dict], processed: Dict, file_path: str, 
+                       commit_info: Dict[str, str], github_url: str) -> None:
+        """
+        Process a list of chunks and upsert them to Qdrant.
+        
+        Args:
+            chunks: List of chunk dictionaries with content, chunk_index, section_title, tokens
+            processed: Processed markdown data containing title, filename
+            file_path: Path to the file being processed
+            commit_info: Git commit information
+            github_url: GitHub URL for the file
+        """
+        self.logger.info("Processing chunked document", 
+                         file_path=file_path, 
+                         chunk_count=len(chunks))
+        
+        # Process each chunk as a separate document
+        for chunk in chunks:
+            # Generate unique UUID for chunk based on file path and chunk index
+            base_id = self.markdown_processor.calculate_document_id(file_path)
+            chunk_data = f"{base_id}_chunk_{chunk['chunk_index']}"
+            chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, chunk_data))
+            
+            # Generate metadata for chunk
+            metadata = self.markdown_processor.generate_metadata(
+                chunk['content'], 
+                processed['title'], 
+                processed['filename'],
+                file_path,
+                commit_info,
+                github_url
+            )
+            
+            # Add chunk-specific metadata
+            metadata.update({
+                'chunk_index': chunk['chunk_index'],
+                'total_chunks': len(chunks),
+                'section_title': chunk['section_title'],
+                'chunk_tokens': chunk['tokens'],
+                'is_chunk': True
+            })
+            
+            # Generate embedding for chunk
+            embedding = self.embedding_service.generate_embedding(chunk['content'])
+            
+            # Upsert chunk to Qdrant
+            self.qdrant_service.upsert_point(
+                point_id=chunk_id,
+                vector=embedding,
+                metadata=metadata
+            )
     
     def sync(self) -> Dict[str, Any]:
         """Perform incremental synchronization."""

@@ -191,6 +191,10 @@ class TestSyncPipelineMainSync:
         
         # Mock file processing
         mock_git.get_file_content.return_value = "# New Policy\nContent here"
+        mock_git.get_file_commit_info.return_value = {
+            'commit_sha': 'abc123',
+            'commit_date': '2024-01-01T00:00:00Z'
+        }
         mock_md.process_markdown.return_value = {
             'title': 'New Policy',
             'content': 'Processed content',
@@ -239,7 +243,7 @@ class TestSyncPipelineMainSync:
         # Mock file ID calculation for deleted files
         mock_md.calculate_document_id.return_value = 'doc456'
         mock_qdrant.collection_exists.return_value = True
-        mock_qdrant.delete_point.return_value = True
+        mock_qdrant.delete_document_chunks.return_value = True
         
         pipeline = SyncPipeline()
         result = pipeline.sync()
@@ -251,7 +255,7 @@ class TestSyncPipelineMainSync:
         assert len(result['deleted_files']) == 1
         
         # Verify deletion
-        mock_qdrant.delete_point.assert_called_once_with('doc456')
+        mock_qdrant.delete_document_chunks.assert_called_once_with('doc456')
         
         # Should not generate embeddings for deleted files
         mock_embedding.generate_embedding.assert_not_called()
@@ -278,6 +282,15 @@ class TestSyncPipelineMainSync:
         
         mock_git.get_file_content.side_effect = mock_get_file_content
         
+        # Mock file commit info
+        def mock_get_file_commit_info(file_path):
+            return {
+                'commit_sha': f'sha_for_{file_path}',
+                'commit_date': '2024-01-01T00:00:00Z'
+            }
+        
+        mock_git.get_file_commit_info.side_effect = mock_get_file_commit_info
+        
         # Mock processing results
         def mock_process_markdown(content, file_path):
             return {
@@ -290,11 +303,26 @@ class TestSyncPipelineMainSync:
                 'estimated_tokens': len(content) // 4
             }
         
-        def mock_calculate_document_id(file_path, content):
+        def mock_calculate_document_id(file_path):
             return f'doc_{file_path.replace(".md", "")}'
         
-        def mock_generate_metadata(content, title, filename):
-            return {'file': filename}
+        def mock_generate_metadata(content, title, filename, file_path, commit_info, github_url):
+            return {
+                'document_id': f'doc_{filename.replace(".md", "")}',
+                'title': title,
+                'file_path': file_path,
+                'last_modified': commit_info.get('commit_date', '2024-01-01T00:00:00Z'),
+                'commit_hash': commit_info.get('commit_sha', 'abc123'),
+                'github_url': github_url,
+                'content_length': len(content),
+                'estimated_tokens': len(content) // 4,
+                'content': content,
+                'chunk_index': 0,
+                'total_chunks': 1,
+                'section_title': title,
+                'chunk_tokens': len(content) // 4,
+                'is_chunk': False
+            }
         
         mock_md.process_markdown.side_effect = mock_process_markdown
         mock_md.calculate_document_id.side_effect = mock_calculate_document_id
@@ -303,7 +331,7 @@ class TestSyncPipelineMainSync:
         mock_embedding.generate_embedding.return_value = [0.1] * 1024
         mock_qdrant.collection_exists.return_value = True
         mock_qdrant.upsert_point.return_value = True
-        mock_qdrant.delete_point.return_value = True
+        mock_qdrant.delete_document_chunks.return_value = True
         
         pipeline = SyncPipeline()
         result = pipeline.sync()
@@ -319,7 +347,7 @@ class TestSyncPipelineMainSync:
         assert mock_md.process_markdown.call_count == 2
         assert mock_embedding.generate_embedding.call_count == 2
         assert mock_qdrant.upsert_point.call_count == 2
-        assert mock_qdrant.delete_point.call_count == 1
+        assert mock_qdrant.delete_document_chunks.call_count == 1
 
 
 class TestSyncPipelineErrorHandling:
@@ -356,6 +384,10 @@ class TestSyncPipelineErrorHandling:
             []            # deleted
         )
         mock_git.get_file_content.return_value = "Test content"
+        mock_git.get_file_commit_info.return_value = {
+            'commit_sha': 'abc123',
+            'commit_date': '2024-01-01T00:00:00Z'
+        }
         mock_md.process_markdown.return_value = {
             'title': 'Test',
             'content': 'Test content',
@@ -396,6 +428,10 @@ class TestSyncPipelineErrorHandling:
             []            # deleted
         )
         mock_git.get_file_content.return_value = "Test content"
+        mock_git.get_file_commit_info.return_value = {
+            'commit_sha': 'abc123',
+            'commit_date': '2024-01-01T00:00:00Z'
+        }
         mock_md.process_markdown.return_value = {
             'title': 'Test',
             'content': 'Test content',
@@ -440,6 +476,15 @@ class TestSyncPipelineReindexAll:
         
         mock_git.get_file_content.side_effect = mock_get_file_content
         
+        # Mock file commit info
+        def mock_get_file_commit_info(file_path):
+            return {
+                'commit_sha': f'sha_for_{file_path}',
+                'commit_date': '2024-01-01T00:00:00Z'
+            }
+        
+        mock_git.get_file_commit_info.side_effect = mock_get_file_commit_info
+        
         def mock_process_markdown(content, file_path):
             return {
                 'title': f'Title for {file_path}',
@@ -451,11 +496,26 @@ class TestSyncPipelineReindexAll:
                 'estimated_tokens': len(content) // 4
             }
         
-        def mock_calculate_document_id(file_path, content):
+        def mock_calculate_document_id(file_path):
             return f'doc_{file_path.replace(".md", "")}'
         
-        def mock_generate_metadata(content, title, filename):
-            return {'file': filename}
+        def mock_generate_metadata(content, title, filename, file_path, commit_info, github_url):
+            return {
+                'document_id': f'doc_{filename.replace(".md", "")}',
+                'title': title,
+                'file_path': file_path,
+                'last_modified': commit_info.get('commit_date', '2024-01-01T00:00:00Z'),
+                'commit_hash': commit_info.get('commit_sha', 'abc123'),
+                'github_url': github_url,
+                'content_length': len(content),
+                'estimated_tokens': len(content) // 4,
+                'content': content,
+                'chunk_index': 0,
+                'total_chunks': 1,
+                'section_title': title,
+                'chunk_tokens': len(content) // 4,
+                'is_chunk': False
+            }
         
         mock_md.process_markdown.side_effect = mock_process_markdown
         mock_md.calculate_document_id.side_effect = mock_calculate_document_id

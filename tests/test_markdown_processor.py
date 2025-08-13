@@ -269,8 +269,8 @@ category: education
         
         # Mock file path and commit info (would come from GitWatcher)
         mock_commit_info = {
-            'commit_sha': 'abc123def456',
-            'commit_date': '2024-01-15T10:30:00+09:00'
+            'sha': 'abc123def456',
+            'date': '2024-01-15T10:30:00+09:00'
         }
         
         metadata = processor.generate_metadata(
@@ -284,19 +284,20 @@ category: education
         
         # Should include all required metadata fields
         expected_fields = [
-            'doc_id', '규정명', '파일경로', '갱신날짜', 
-            '업로드시각', 'commit_sha', 'source_url'
+            'document_id', 'title', 'file_path', 'last_modified',
+            'commit_hash', 'github_url', 'content_length', 'estimated_tokens'
         ]
         
         for field in expected_fields:
             assert field in metadata
         
         # Check specific values
-        assert metadata['규정명'] == title
-        assert metadata['파일경로'] == "규정/test-doc.md"
-        assert metadata['commit_sha'] == 'abc123def456'
-        assert metadata['갱신날짜'] == '2024-01-15T10:30:00+09:00'
-        assert metadata['source_url'] == "https://github.com/kadragon/KNUE-Policy-Hub/blob/main/규정/test-doc.md"
+        assert metadata['title'] == title
+        assert metadata['file_path'] == "규정/test-doc.md"
+        assert metadata['commit_hash'] == 'abc123def456'
+        assert metadata['github_url'] == "https://github.com/kadragon/KNUE-Policy-Hub/blob/main/규정/test-doc.md"
+        assert metadata['content_length'] == len(content)
+        assert metadata['estimated_tokens'] > 0
     
     def test_calculate_document_id(self):
         """Test document ID calculation for consistent identification."""
@@ -428,3 +429,163 @@ def test_datetime_handling():
     # Test timestamp
     timestamp = time.time()
     assert isinstance(timestamp, float)
+
+
+class TestDocumentChunkingIntegration:
+    """Test chunking integration with MarkdownProcessor."""
+    
+    def test_create_document_for_vectorization_single_document(self):
+        """Test document creation for non-chunked content."""
+        from markdown_processor import MarkdownProcessor
+        
+        processor = MarkdownProcessor()
+        
+        # Normal sized content
+        processed_content = {
+            'content': "# 테스트\n\n내용입니다.",
+            'title': "테스트",
+            'filename': "test.md",
+            'is_valid': True,
+            'validation_error': None,
+            'char_count': 20,
+            'estimated_tokens': 10,
+            'needs_chunking': False,
+            'chunks': None
+        }
+        
+        mock_commit_info = {'sha': 'abc123'}
+        documents = processor.create_document_for_vectorization(
+            processed_content=processed_content,
+            file_path="test.md",
+            commit_info=mock_commit_info,
+            github_url="https://github.com/test/repo/blob/main/test.md"
+        )
+        
+        # Should return list with single document
+        assert isinstance(documents, list)
+        assert len(documents) == 1
+        
+        document = documents[0]
+        assert document['content'] == processed_content['content']
+        assert document['metadata']['is_chunk'] == False
+        assert document['metadata']['total_chunks'] == 1
+        assert document['processing_info']['is_chunk'] == False
+    
+    def test_create_document_for_vectorization_chunked_documents(self):
+        """Test document creation for chunked content."""
+        from markdown_processor import MarkdownProcessor
+        
+        processor = MarkdownProcessor()
+        
+        # Mock chunked content
+        mock_chunks = [
+            {
+                'content': '# 테스트 Part 1\n\n첫 번째 부분',
+                'tokens': 400,
+                'chunk_index': 0,
+                'section_title': '테스트',
+                'char_count': 25,
+                'has_context_overlap': False,
+                'overlap_tokens': 0
+            },
+            {
+                'content': '# 테스트 Part 2\n\n두 번째 부분',
+                'tokens': 450,
+                'chunk_index': 1,
+                'section_title': '테스트',
+                'char_count': 25,
+                'has_context_overlap': True,
+                'overlap_tokens': 50
+            }
+        ]
+        
+        processed_content = {
+            'content': "# 테스트\n\n전체 내용입니다.",
+            'title': "테스트",
+            'filename': "long-test.md",
+            'is_valid': True,
+            'validation_error': None,
+            'char_count': 1000,
+            'estimated_tokens': 900,
+            'needs_chunking': True,
+            'chunks': mock_chunks
+        }
+        
+        mock_commit_info = {'sha': 'def456'}
+        documents = processor.create_document_for_vectorization(
+            processed_content=processed_content,
+            file_path="long-test.md",
+            commit_info=mock_commit_info,
+            github_url="https://github.com/test/repo/blob/main/long-test.md"
+        )
+        
+        # Should return list with multiple documents
+        assert isinstance(documents, list)
+        assert len(documents) == 2
+        
+        # Check first chunk
+        doc1 = documents[0]
+        assert doc1['content'] == mock_chunks[0]['content']
+        assert doc1['metadata']['is_chunk'] == True
+        assert doc1['metadata']['chunk_index'] == 0
+        assert doc1['metadata']['total_chunks'] == 2
+        assert doc1['metadata']['has_context_overlap'] == False
+        assert doc1['processing_info']['is_chunk'] == True
+        assert "Part 1" in doc1['metadata']['title']
+        
+        # Check second chunk
+        doc2 = documents[1]
+        assert doc2['content'] == mock_chunks[1]['content']
+        assert doc2['metadata']['is_chunk'] == True
+        assert doc2['metadata']['chunk_index'] == 1
+        assert doc2['metadata']['total_chunks'] == 2
+        assert doc2['metadata']['has_context_overlap'] == True
+        assert doc2['processing_info']['is_chunk'] == True
+        assert "Part 2" in doc2['metadata']['title']
+        
+        # Document IDs should be different
+        assert doc1['metadata']['document_id'] != doc2['metadata']['document_id']
+        assert 'chunk_0' in doc1['metadata']['document_id']
+        assert 'chunk_1' in doc2['metadata']['document_id']
+    
+    def test_chunk_markdown_content_overlap_strategy(self):
+        """Test the 800/200 overlap strategy in chunking."""
+        from markdown_processor import MarkdownProcessor
+        
+        processor = MarkdownProcessor()
+        
+        # Create content that will require multiple chunks
+        content = """# 긴 문서
+
+## 섹션 1
+""" + "섹션 1의 내용입니다. " * 100 + """
+
+## 섹션 2  
+""" + "섹션 2의 내용입니다. " * 100 + """
+
+## 섹션 3
+""" + "섹션 3의 내용입니다. " * 100
+        
+        chunks = processor.chunk_markdown_content(content, max_tokens=400)
+        
+        # Should create multiple chunks
+        assert len(chunks) > 1
+        
+        # Check overlap metadata - with current algorithm, some chunks may be small
+        # due to section boundaries, but they should still have the required fields
+        for i, chunk in enumerate(chunks):
+            assert 'has_context_overlap' in chunk
+            assert 'overlap_tokens' in chunk
+            
+            if i == 0:
+                # First chunk should not have overlap
+                assert chunk.get('has_context_overlap', False) == False
+                assert chunk.get('overlap_tokens', 0) == 0
+            
+            # If a chunk has context overlap, verify the metadata is consistent
+            if chunk.get('has_context_overlap', False):
+                assert chunk.get('overlap_tokens', 0) > 0  # Should have overlap tokens
+            
+            # If overlap_tokens > 0, should have has_context_overlap set to True
+            if chunk.get('overlap_tokens', 0) > 0:
+                assert chunk.get('has_context_overlap', False) == True
