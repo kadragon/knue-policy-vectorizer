@@ -16,16 +16,18 @@ class MarkdownProcessor:
     
     def __init__(self, config=None):
         """Initialize the MarkdownProcessor."""
-        self.logger = setup_logger("INFO", "MarkdownProcessor")
+        # Use config-provided log level when available
+        if config is None:
+            from config import Config
+            config = Config()
+        self.logger = setup_logger(getattr(config, "log_level", "INFO"), "MarkdownProcessor")
         
         # Token estimation (conservative approximation: 1 token ≈ 2 characters for Korean)
         # This is more conservative to ensure we chunk documents that might exceed limits
         self.chars_per_token = 2
         
         # Use provided config or create a default one
-        if config is None:
-            from config import Config
-            config = Config()
+        # config already ensured above
         
         # Content limits
         self.max_chars = config.max_document_chars

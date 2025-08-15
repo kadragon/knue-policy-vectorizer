@@ -11,6 +11,7 @@ from git_watcher import GitWatcher
 from markdown_processor import MarkdownProcessor
 from embedding_service import EmbeddingService
 from qdrant_service import QdrantService
+from logger import setup_logger
 
 
 logger = structlog.get_logger(__name__)
@@ -30,6 +31,8 @@ class SyncPipeline:
     def __init__(self, config: Optional[Config] = None):
         """Initialize the sync pipeline with configuration."""
         self.config = config or Config()
+        # Configure logging using configured level
+        setup_logger(self.config.log_level, "SyncPipeline")
         self.logger = logger.bind(pipeline="sync")
         
         # Simple state tracking for commits
@@ -42,7 +45,8 @@ class SyncPipeline:
             git_config = {
                 'repo_url': self.config.repo_url,
                 'branch': self.config.branch,
-                'cache_dir': self.config.repo_cache_dir
+                'cache_dir': self.config.repo_cache_dir,
+                'log_level': self.config.log_level,
             }
             self._git_watcher = GitWatcher(git_config)
         return self._git_watcher
