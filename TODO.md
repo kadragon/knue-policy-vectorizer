@@ -344,3 +344,177 @@ PRD.txt를 기반으로 한 **TDD(테스트 주도 개발)** 방식의 KNUE Poli
 이제 **KNUE Policy Hub의 100개 마크다운 정책 문서**를 실시간으로 벡터화하여 **의미 검색 및 RAG 시스템**에 활용할 수 있습니다!
 
 각 단계마다 테스트 실행 결과와 실제 동작 확인을 통해 진행 상황을 검증했습니다.
+
+---
+
+## Phase 9: Multi-Provider Support Enhancement 🚀 NEW
+
+### 9.1 Multi-Provider Configuration Design
+
+- [ ] Create provider enums for embedding services (OLLAMA, OPENAI) and vector databases (QDRANT_LOCAL, QDRANT_CLOUD)
+- [ ] Design abstract interfaces for EmbeddingServiceInterface and VectorServiceInterface  
+- [ ] Extend Config class to support provider selection via environment variables
+- [ ] Add provider-specific configuration validation and parameter handling
+- [ ] Design provider factory pattern for dynamic service instantiation
+
+### 9.2 OpenAI Embedding Service Implementation
+
+- [ ] Create OpenAIEmbeddingService class implementing EmbeddingServiceInterface
+- [ ] Add OpenAI API client integration with proper authentication
+- [ ] Implement text-embedding-3-small and text-embedding-3-large model support
+- [ ] Add token counting and validation for OpenAI models (8192/8191 token limits)
+- [ ] Handle OpenAI-specific rate limiting and error responses
+- [ ] Add batch processing support for OpenAI embeddings
+
+### 9.3 Qdrant Cloud Support Implementation
+
+- [ ] Extend QdrantService to support cloud authentication (API keys)
+- [ ] Add Qdrant Cloud URL configuration and connection handling
+- [ ] Implement cloud-specific collection management and security settings
+- [ ] Add support for Qdrant Cloud clusters and regions
+- [ ] Handle cloud-specific rate limits and connection pooling
+- [ ] Add health check and connectivity validation for cloud instances
+
+### 9.4 CLI Provider Selection Interface
+
+- [ ] Add `configure` CLI command for interactive provider setup
+- [ ] Implement `--provider-embedding` and `--provider-vector` CLI options
+- [ ] Add `list-providers` command to show available configurations
+- [ ] Create `test-providers` command for connectivity validation
+- [ ] Add provider configuration status display in health check
+- [ ] Implement configuration persistence and environment file generation
+
+### 9.5 Environment Variable Configuration Extension
+
+- [ ] Add EMBEDDING_PROVIDER and VECTOR_PROVIDER environment variables
+- [ ] Extend Config.from_env() to handle provider-specific configurations
+- [ ] Add OpenAI-specific variables (OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL)
+- [ ] Add Qdrant Cloud variables (QDRANT_API_KEY, QDRANT_CLUSTER_URL)
+- [ ] Support legacy environment variable mapping for backward compatibility
+- [ ] Add configuration validation and meaningful error messages
+
+### 9.6 Migration and Compatibility Tools
+
+- [ ] Create migration script for transferring vectors between providers
+- [ ] Add compatibility check for vector dimensions across providers
+- [ ] Implement backup and restore functionality for provider switching
+- [ ] Add configuration migration tools for environment setup
+- [ ] Create provider performance comparison utilities
+- [ ] Add rollback capabilities for failed migrations
+
+### 9.7 Multi-Provider Testing Suite
+
+- [ ] Write comprehensive unit tests for provider factories and interfaces
+- [ ] Add integration tests for OpenAI embedding service
+- [ ] Create Qdrant Cloud integration tests (with test credentials)
+- [ ] Implement provider switching tests and compatibility validation
+- [ ] Add performance benchmarking tests across providers
+- [ ] Create end-to-end tests for complete multi-provider workflows
+
+### 9.8 Configuration Management Enhancement
+
+- [ ] Add configuration validation and schema checking
+- [ ] Implement configuration templates for common provider setups
+- [ ] Add configuration backup and versioning
+- [ ] Create configuration import/export functionality
+- [ ] Add environment-specific configuration profiles
+- [ ] Implement configuration security and credential management
+
+### 9.9 Documentation and User Guide Updates
+
+- [ ] Update README.md with multi-provider setup instructions
+- [ ] Create provider comparison guide (features, performance, costs)
+- [ ] Add step-by-step provider migration guide
+- [ ] Update Docker documentation for multi-provider deployments
+- [ ] Create troubleshooting guide for provider-specific issues
+- [ ] Add configuration examples for different deployment scenarios
+
+## Multi-Provider Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Sync Pipeline                            │
+└─────────────────┬───────────────────────┬───────────────────┘
+                  │                       │
+         ┌────────▼────────┐     ┌────────▼────────┐
+         │ Embedding       │     │ Vector          │
+         │ Service Factory │     │ Service Factory │
+         └─────────────────┘     └─────────────────┘
+                  │                       │
+       ┌──────────┼──────────┐           ┌┼─────────────┐
+       │          │          │           ││             │
+   ┌───▼───┐ ┌───▼───┐ ┌────▼────┐ ┌───▼▼───┐ ┌──────▼──────┐
+   │Ollama │ │OpenAI │ │  Future │ │ Qdrant │ │ Qdrant      │
+   │ bge-m3│ │ text- │ │Provider │ │ Local  │ │ Cloud       │
+   │       │ │embed-3│ │         │ │        │ │             │
+   └───────┘ └───────┘ └─────────┘ └────────┘ └─────────────┘
+```
+
+## Key Environment Variables for Multi-Provider Setup
+
+```bash
+# Provider Selection
+EMBEDDING_PROVIDER=ollama|openai
+VECTOR_PROVIDER=qdrant_local|qdrant_cloud
+
+# Ollama Configuration (existing)
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=bge-m3
+
+# OpenAI Configuration (new)
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=text-embedding-3-small|text-embedding-3-large
+OPENAI_BASE_URL=https://api.openai.com/v1  # Optional for custom endpoints
+
+# Qdrant Local Configuration (existing)
+QDRANT_URL=http://localhost:6333
+
+# Qdrant Cloud Configuration (new)
+QDRANT_CLOUD_URL=https://your-cluster.qdrant.tech
+QDRANT_API_KEY=your-api-key
+QDRANT_CLUSTER_REGION=us-east-1  # Optional
+```
+
+## CLI Usage Examples
+
+```bash
+# Configure providers interactively
+uv run python -m src.sync_pipeline configure
+
+# Set providers via CLI
+uv run python -m src.sync_pipeline --embedding-provider openai --vector-provider qdrant_cloud sync
+
+# List available providers
+uv run python -m src.sync_pipeline list-providers
+
+# Test provider connectivity
+uv run python -m src.sync_pipeline test-providers
+
+# Migrate between providers
+uv run python -m src.sync_pipeline migrate --from ollama,qdrant_local --to openai,qdrant_cloud
+```
+
+## Expected Benefits
+
+1. **Flexibility**: Choose optimal providers for different use cases and environments
+2. **Scalability**: Use cloud providers for production deployments
+3. **Cost Optimization**: Select cost-effective providers based on usage patterns
+4. **Redundancy**: Support multiple providers for high availability
+5. **Future-Proofing**: Easy integration of new embedding models and vector databases
+
+## Implementation Priority
+
+**High Priority** (Core functionality):
+- Provider enums and interfaces (9.1)
+- OpenAI embedding service (9.2)
+- Basic CLI provider selection (9.4)
+- Environment variable extension (9.5)
+
+**Medium Priority** (Enhanced features):
+- Qdrant Cloud support (9.3)
+- Migration tools (9.6)
+- Comprehensive testing (9.7)
+
+**Lower Priority** (Polish and documentation):
+- Advanced configuration management (9.8)
+- Documentation updates (9.9)
