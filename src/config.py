@@ -87,8 +87,32 @@ class Config:
         repo_cache_dir = os.getenv("REPO_CACHE_DIR", cls.repo_cache_dir)
 
         # Provider selection
-        embedding_provider_str = os.getenv("EMBEDDING_PROVIDER", "ollama")
-        vector_provider_str = os.getenv("VECTOR_PROVIDER", "qdrant_local")
+        # Prefer explicit provider envs; otherwise infer sensible defaults from legacy-specific vars
+        embedding_provider_str = os.getenv("EMBEDDING_PROVIDER")
+        if not embedding_provider_str:
+            if (
+                os.getenv("OLLAMA_URL")
+                or os.getenv("OLLAMA_MODEL")
+                or os.getenv("EMBEDDING_MODEL")
+            ):
+                embedding_provider_str = "ollama"
+            elif (
+                os.getenv("OPENAI_API_KEY")
+                or os.getenv("OPENAI_MODEL")
+                or os.getenv("OPENAI_BASE_URL")
+            ):
+                embedding_provider_str = "openai"
+            else:
+                embedding_provider_str = "ollama"
+
+        vector_provider_str = os.getenv("VECTOR_PROVIDER")
+        if not vector_provider_str:
+            if os.getenv("QDRANT_URL"):
+                vector_provider_str = "qdrant_local"
+            elif os.getenv("QDRANT_CLOUD_URL") or os.getenv("QDRANT_API_KEY"):
+                vector_provider_str = "qdrant_cloud"
+            else:
+                vector_provider_str = "qdrant_local"
         
         try:
             embedding_provider = EmbeddingProvider(embedding_provider_str)
