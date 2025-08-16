@@ -87,3 +87,58 @@ def test_config_from_env_supports_legacy_and_canonical_keys(monkeypatch):
     assert cfg2.qdrant_collection == "legacy_collection"
     assert cfg2.embedding_model == "legacy-model"
     assert cfg2.max_tokens == 2048
+
+
+def test_canonical_overrides_legacy_when_both_set(monkeypatch):
+    from config import Config
+
+    # Clear
+    for k in [
+        "GIT_REPO_URL",
+        "REPO_URL",
+        "GIT_BRANCH",
+        "BRANCH",
+        "COLLECTION_NAME",
+        "QDRANT_COLLECTION",
+        "OLLAMA_MODEL",
+        "EMBEDDING_MODEL",
+        "MAX_TOKEN_LENGTH",
+        "MAX_TOKENS",
+    ]:
+        monkeypatch.delenv(k, raising=False)
+
+    # Set both canonical and legacy
+    monkeypatch.setenv("GIT_REPO_URL", "https://canonical/repo.git")
+    monkeypatch.setenv("REPO_URL", "https://legacy/repo.git")
+
+    monkeypatch.setenv("GIT_BRANCH", "canonical-branch")
+    monkeypatch.setenv("BRANCH", "legacy-branch")
+
+    monkeypatch.setenv("COLLECTION_NAME", "canonical_collection")
+    monkeypatch.setenv("QDRANT_COLLECTION", "legacy_collection")
+
+    monkeypatch.setenv("OLLAMA_MODEL", "canonical-model")
+    monkeypatch.setenv("EMBEDDING_MODEL", "legacy-model")
+
+    monkeypatch.setenv("MAX_TOKEN_LENGTH", "9999")
+    monkeypatch.setenv("MAX_TOKENS", "1111")
+
+    cfg = Config.from_env()
+
+    assert cfg.repo_url == "https://canonical/repo.git"
+    assert cfg.branch == "canonical-branch"
+    assert cfg.qdrant_collection == "canonical_collection"
+    assert cfg.embedding_model == "canonical-model"
+    assert cfg.max_tokens == 9999
+
+
+def test_invalid_integer_env_values_raise(monkeypatch):
+    from config import Config
+
+    # Ensure a clean env
+    monkeypatch.delenv("VECTOR_SIZE", raising=False)
+    # Set invalid integer for a numeric field
+    monkeypatch.setenv("VECTOR_SIZE", "not_an_int")
+
+    with pytest.raises(ValueError):
+        _ = Config.from_env()
