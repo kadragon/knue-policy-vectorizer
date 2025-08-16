@@ -4,7 +4,8 @@ Multi-provider support for embedding and vector services
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import List, Dict, Any, Optional, Union
+from typing import Any, Dict, List, Optional, Union
+
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -12,45 +13,47 @@ logger = structlog.get_logger(__name__)
 
 class EmbeddingProvider(Enum):
     """Supported embedding service providers"""
+
     OLLAMA = "ollama"
     OPENAI = "openai"
-    
+
     def __str__(self) -> str:
         return self.value
 
 
 class VectorProvider(Enum):
     """Supported vector database providers"""
+
     QDRANT_LOCAL = "qdrant_local"
     QDRANT_CLOUD = "qdrant_cloud"
-    
+
     def __str__(self) -> str:
         return self.value
 
 
 class EmbeddingServiceInterface(ABC):
     """Abstract interface for embedding services"""
-    
+
     @abstractmethod
     def generate_embedding(self, text: str) -> List[float]:
         """Generate embedding for a single text"""
         pass
-    
+
     @abstractmethod
     def generate_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings for multiple texts"""
         pass
-    
+
     @abstractmethod
     def health_check(self) -> bool:
         """Check if the embedding service is healthy"""
         pass
-    
+
     @abstractmethod
     def get_model_info(self) -> Dict[str, Any]:
         """Get information about the embedding model"""
         pass
-    
+
     @abstractmethod
     def validate_token_count(self, text: str) -> bool:
         """Validate that text doesn't exceed token limits"""
@@ -59,37 +62,39 @@ class EmbeddingServiceInterface(ABC):
 
 class VectorServiceInterface(ABC):
     """Abstract interface for vector database services"""
-    
+
     @abstractmethod
     def create_collection(self, collection_name: str, vector_size: int) -> bool:
         """Create a new collection"""
         pass
-    
+
     @abstractmethod
     def delete_collection(self, collection_name: str) -> bool:
         """Delete a collection"""
         pass
-    
+
     @abstractmethod
     def collection_exists(self, collection_name: str) -> bool:
         """Check if collection exists"""
         pass
-    
+
     @abstractmethod
     def upsert_points(self, collection_name: str, points: List[Dict[str, Any]]) -> bool:
         """Insert or update points in the collection"""
         pass
-    
+
     @abstractmethod
     def delete_points(self, collection_name: str, point_ids: List[str]) -> bool:
         """Delete points from the collection"""
         pass
-    
+
     @abstractmethod
-    def search_points(self, collection_name: str, vector: List[float], limit: int = 10) -> List[Dict[str, Any]]:
+    def search_points(
+        self, collection_name: str, vector: List[float], limit: int = 10
+    ) -> List[Dict[str, Any]]:
         """Search for similar points in the collection"""
         pass
-    
+
     @abstractmethod
     def health_check(self) -> bool:
         """Check if the vector service is healthy"""
@@ -98,20 +103,16 @@ class VectorServiceInterface(ABC):
 
 class ProviderConfig:
     """Configuration for provider selection"""
-    
+
     def __init__(
-        self,
-        embedding_provider: EmbeddingProvider,
-        vector_provider: VectorProvider
+        self, embedding_provider: EmbeddingProvider, vector_provider: VectorProvider
     ):
         self.embedding_provider = embedding_provider
         self.vector_provider = vector_provider
-    
+
     @classmethod
     def from_strings(
-        cls,
-        embedding_provider: str,
-        vector_provider: str
+        cls, embedding_provider: str, vector_provider: str
     ) -> "ProviderConfig":
         """Create ProviderConfig from string values"""
         try:
@@ -120,62 +121,55 @@ class ProviderConfig:
             return cls(emb_provider, vec_provider)
         except ValueError as e:
             raise ValueError(f"Invalid provider string: {e}")
-    
+
     def is_valid(self) -> bool:
         """Validate the provider configuration"""
-        return (
-            isinstance(self.embedding_provider, EmbeddingProvider) and
-            isinstance(self.vector_provider, VectorProvider)
+        return isinstance(self.embedding_provider, EmbeddingProvider) and isinstance(
+            self.vector_provider, VectorProvider
         )
-    
+
     def to_dict(self) -> Dict[str, str]:
         """Convert to dictionary representation"""
         return {
             "embedding_provider": str(self.embedding_provider),
-            "vector_provider": str(self.vector_provider)
+            "vector_provider": str(self.vector_provider),
         }
 
 
 class ProviderFactory:
     """Factory for creating provider service instances"""
-    
+
     def __init__(self):
         self.logger = logger.bind(component="ProviderFactory")
-    
+
     def get_embedding_service(
-        self,
-        provider: EmbeddingProvider,
-        config: Dict[str, Any]
+        self, provider: EmbeddingProvider, config: Dict[str, Any]
     ) -> EmbeddingServiceInterface:
         """Get embedding service instance for the specified provider"""
         self.logger.info("Creating embedding service", provider=str(provider))
-        
+
         if provider == EmbeddingProvider.OLLAMA:
             return self._create_ollama_embedding_service(config)
         elif provider == EmbeddingProvider.OPENAI:
             return self._create_openai_embedding_service(config)
         else:
             raise ValueError(f"Unsupported embedding provider: {provider}")
-    
+
     def get_vector_service(
-        self,
-        provider: VectorProvider,
-        config: Dict[str, Any]
+        self, provider: VectorProvider, config: Dict[str, Any]
     ) -> VectorServiceInterface:
         """Get vector service instance for the specified provider"""
         self.logger.info("Creating vector service", provider=str(provider))
-        
+
         if provider == VectorProvider.QDRANT_LOCAL:
             return self._create_qdrant_local_service(config)
         elif provider == VectorProvider.QDRANT_CLOUD:
             return self._create_qdrant_cloud_service(config)
         else:
             raise ValueError(f"Unsupported vector provider: {provider}")
-    
+
     def validate_embedding_config(
-        self,
-        provider: EmbeddingProvider,
-        config: Dict[str, Any]
+        self, provider: EmbeddingProvider, config: Dict[str, Any]
     ) -> bool:
         """Validate configuration for embedding provider"""
         if provider == EmbeddingProvider.OLLAMA:
@@ -186,11 +180,9 @@ class ProviderFactory:
             return all(field in config for field in required_fields)
         else:
             return False
-    
+
     def validate_vector_config(
-        self,
-        provider: VectorProvider,
-        config: Dict[str, Any]
+        self, provider: VectorProvider, config: Dict[str, Any]
     ) -> bool:
         """Validate configuration for vector provider"""
         if provider == VectorProvider.QDRANT_LOCAL:
@@ -201,8 +193,10 @@ class ProviderFactory:
             return all(field in config for field in required_fields)
         else:
             return False
-    
-    def _create_ollama_embedding_service(self, config: Dict[str, Any]) -> EmbeddingServiceInterface:
+
+    def _create_ollama_embedding_service(
+        self, config: Dict[str, Any]
+    ) -> EmbeddingServiceInterface:
         """Create Ollama embedding service instance"""
         # Use existing embedding service
         try:
@@ -212,10 +206,12 @@ class ProviderFactory:
         return EmbeddingService(
             base_url=config.get("ollama_url", "http://localhost:11434"),
             model_name=config.get("model", "bge-m3"),
-            max_tokens=config.get("max_tokens", 8192)
+            max_tokens=config.get("max_tokens", 8192),
         )
-    
-    def _create_openai_embedding_service(self, config: Dict[str, Any]) -> EmbeddingServiceInterface:
+
+    def _create_openai_embedding_service(
+        self, config: Dict[str, Any]
+    ) -> EmbeddingServiceInterface:
         """Create OpenAI embedding service instance"""
         try:
             from .embedding_service_openai import OpenAIEmbeddingService
@@ -224,17 +220,19 @@ class ProviderFactory:
         return OpenAIEmbeddingService(
             api_key=config["api_key"],
             model=config.get("model", "text-embedding-3-small"),
-            base_url=config.get("base_url", "https://api.openai.com/v1")
+            base_url=config.get("base_url", "https://api.openai.com/v1"),
         )
-    
-    def _create_qdrant_local_service(self, config: Dict[str, Any]) -> VectorServiceInterface:
+
+    def _create_qdrant_local_service(
+        self, config: Dict[str, Any]
+    ) -> VectorServiceInterface:
         """Create local Qdrant service instance"""
         # Use existing Qdrant service
         try:
             from .qdrant_service import QdrantService
         except ImportError:
             from qdrant_service import QdrantService
-        
+
         # Parse URL to get host and port
         url = config["url"]
         url_parts = url.replace("http://", "").replace("https://", "")
@@ -249,10 +247,12 @@ class ProviderFactory:
             host=host,
             port=port,
             collection_name=config.get("collection_name", "knue-policy-idx"),
-            vector_size=config.get("vector_size", 1024)
+            vector_size=config.get("vector_size", 1024),
         )
-    
-    def _create_qdrant_cloud_service(self, config: Dict[str, Any]) -> VectorServiceInterface:
+
+    def _create_qdrant_cloud_service(
+        self, config: Dict[str, Any]
+    ) -> VectorServiceInterface:
         """Create Qdrant Cloud service instance"""
         try:
             from .qdrant_service_cloud import QdrantCloudService
@@ -261,7 +261,9 @@ class ProviderFactory:
         return QdrantCloudService(
             url=config["url"],
             api_key=config["api_key"],
-            timeout=config.get("timeout", 30)
+            timeout=config.get("timeout", 30),
+            collection_name=config.get("collection_name"),
+            vector_size=config.get("vector_size"),
         )
 
 
@@ -270,7 +272,7 @@ def create_default_provider_config() -> ProviderConfig:
     """Create default provider configuration (Ollama + local Qdrant)"""
     return ProviderConfig(
         embedding_provider=EmbeddingProvider.OLLAMA,
-        vector_provider=VectorProvider.QDRANT_LOCAL
+        vector_provider=VectorProvider.QDRANT_LOCAL,
     )
 
 
