@@ -198,6 +198,10 @@ class TestMultiProviderConfig:
     def test_backward_compatibility_env_vars(self):
         """Test that existing environment variables still work"""
         with patch.dict(os.environ, {
+            # Explicitly set providers to ensure isolation and clarity
+            'EMBEDDING_PROVIDER': 'ollama',
+            'VECTOR_PROVIDER': 'qdrant_local',
+            # Legacy-compatible vars should still be respected
             'OLLAMA_URL': 'http://custom:11434',
             'OLLAMA_MODEL': 'custom-model',
             'QDRANT_URL': 'http://custom:6333'
