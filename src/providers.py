@@ -204,26 +204,23 @@ class ProviderFactory:
     
     def _create_ollama_embedding_service(self, config: Dict[str, Any]) -> EmbeddingServiceInterface:
         """Create Ollama embedding service instance"""
-        # Import here to avoid circular imports and allow for optional dependencies
+        # Use existing embedding service
         try:
-            from .embedding_service_ollama import OllamaEmbeddingService
-            return OllamaEmbeddingService(
-                base_url=config.get("ollama_url", "http://localhost:11434"),
-                model_name=config.get("model", "bge-m3"),
-                max_tokens=config.get("max_tokens", 8192)
-            )
-        except ImportError:
-            # Fallback to existing service for now
             from .embedding_service import EmbeddingService
-            return EmbeddingService(
-                base_url=config.get("ollama_url", "http://localhost:11434"),
-                model_name=config.get("model", "bge-m3"),
-                max_tokens=config.get("max_tokens", 8192)
-            )
+        except ImportError:
+            from embedding_service import EmbeddingService
+        return EmbeddingService(
+            base_url=config.get("ollama_url", "http://localhost:11434"),
+            model_name=config.get("model", "bge-m3"),
+            max_tokens=config.get("max_tokens", 8192)
+        )
     
     def _create_openai_embedding_service(self, config: Dict[str, Any]) -> EmbeddingServiceInterface:
         """Create OpenAI embedding service instance"""
-        from .embedding_service_openai import OpenAIEmbeddingService
+        try:
+            from .embedding_service_openai import OpenAIEmbeddingService
+        except ImportError:
+            from embedding_service_openai import OpenAIEmbeddingService
         return OpenAIEmbeddingService(
             api_key=config["api_key"],
             model=config.get("model", "text-embedding-3-small"),
@@ -232,20 +229,35 @@ class ProviderFactory:
     
     def _create_qdrant_local_service(self, config: Dict[str, Any]) -> VectorServiceInterface:
         """Create local Qdrant service instance"""
+        # Use existing Qdrant service
         try:
-            from .qdrant_service_local import QdrantLocalService
-            return QdrantLocalService(
-                url=config["url"],
-                timeout=config.get("timeout", 30)
-            )
-        except ImportError:
-            # Fallback to existing service for now
             from .qdrant_service import QdrantService
-            return QdrantService(url=config["url"])
+        except ImportError:
+            from qdrant_service import QdrantService
+        
+        # Parse URL to get host and port
+        url = config["url"]
+        url_parts = url.replace("http://", "").replace("https://", "")
+        if ":" in url_parts:
+            host, port = url_parts.split(":")
+            port = int(port)
+        else:
+            host = url_parts
+            port = 6333
+
+        return QdrantService(
+            host=host,
+            port=port,
+            collection_name=config.get("collection_name", "knue-policy-idx"),
+            vector_size=config.get("vector_size", 1024)
+        )
     
     def _create_qdrant_cloud_service(self, config: Dict[str, Any]) -> VectorServiceInterface:
         """Create Qdrant Cloud service instance"""
-        from .qdrant_service_cloud import QdrantCloudService
+        try:
+            from .qdrant_service_cloud import QdrantCloudService
+        except ImportError:
+            from qdrant_service_cloud import QdrantCloudService
         return QdrantCloudService(
             url=config["url"],
             api_key=config["api_key"],

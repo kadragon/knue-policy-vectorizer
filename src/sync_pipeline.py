@@ -14,6 +14,13 @@ from git_watcher import GitWatcher
 from logger import setup_logger
 from markdown_processor import MarkdownProcessor
 from qdrant_service import QdrantService
+from providers import (
+    EmbeddingProvider, 
+    VectorProvider, 
+    ProviderFactory, 
+    get_available_embedding_providers,
+    get_available_vector_providers
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -60,36 +67,31 @@ class SyncPipeline:
         return self._markdown_processor
 
     @property
-    def embedding_service(self) -> EmbeddingService:
-        """Get or create EmbeddingService instance."""
+    def embedding_service(self):
+        """Get or create embedding service instance using provider factory."""
         if not hasattr(self, "_embedding_service"):
-            self._embedding_service = EmbeddingService(
-                model_name=self.config.embedding_model,
-                base_url=self.config.ollama_url,
-                max_tokens=self.config.max_tokens,
+            factory = ProviderFactory()
+            embedding_config = self.config.get_embedding_service_config()
+            self._embedding_service = factory.get_embedding_service(
+                self.config.embedding_provider,
+                embedding_config
             )
         return self._embedding_service
 
     @property
-    def qdrant_service(self) -> QdrantService:
-        """Get or create QdrantService instance."""
+    def qdrant_service(self):
+        """Get or create vector service instance using provider factory."""
         if not hasattr(self, "_qdrant_service"):
-            # Parse URL to get host and port
-            url_parts = self.config.qdrant_url.replace("http://", "").replace(
-                "https://", ""
-            )
-            if ":" in url_parts:
-                host, port = url_parts.split(":")
-                port = int(port)
-            else:
-                host = url_parts
-                port = 6333
-
-            self._qdrant_service = QdrantService(
-                host=host,
-                port=port,
-                collection_name=self.config.qdrant_collection,
-                vector_size=self.config.vector_size,
+            factory = ProviderFactory()
+            vector_config = self.config.get_vector_service_config()
+            # Add common configuration required by both local and cloud services
+            vector_config.update({
+                "collection_name": self.config.qdrant_collection,
+                "vector_size": self.config.vector_size
+            })
+            self._qdrant_service = factory.get_vector_service(
+                self.config.vector_provider,
+                vector_config
             )
         return self._qdrant_service
 
@@ -516,11 +518,378 @@ def main():
     pass
 
 
+@main.command(name="list-providers")
+def list_providers():
+    """List all available embedding and vector providers."""
+    click.echo("🔧 Available Providers\n")
+    
+    click.echo("📊 Available Embedding Providers:")
+    for provider in get_available_embedding_providers():
+        click.echo(f"  • {provider}")
+    
+    click.echo("\n🗄️ Available Vector Providers:")
+    for provider in get_available_vector_providers():
+        click.echo(f"  • {provider}")
+
+
+@main.command(name="configure")
+def configure_providers():
+    """Interactive configuration of embedding and vector providers."""
+    click.echo("🔧 Multi-Provider Configuration\n")
+    
+    # Get current config as defaults
+    current_config = Config.from_env()
+    
+    # Embedding provider selection
+    click.echo("📊 Select Embedding Provider:")
+    for i, provider in enumerate(get_available_embedding_providers(), 1):
+        default_marker = " (current)" if provider == str(current_config.embedding_provider) else ""
+        click.echo(f"  {i}. {provider}{default_marker}")
+    
+    while True:
+        provider_choice = click.prompt(
+            "\nEmbedding provider",
+            default=str(current_config.embedding_provider),
+            show_default=True
+        )
+        try:
+            embedding_provider = EmbeddingProvider(provider_choice)
+            break
+        except ValueError:
+            click.echo(f"❌ Invalid provider: {provider_choice}")
+    
+    # Provider-specific configuration
+    config_dict = {"embedding_provider": embedding_provider}
+    
+    if embedding_provider == EmbeddingProvider.OPENAI:
+        config_dict["openai_api_key"] = click.prompt(
+            "OpenAI API Key",
+            default=current_config.openai_api_key,
+            hide_input=True,
+            show_default=False
+        )
+        config_dict["openai_model"] = click.prompt(
+            "OpenAI Model",
+            default=current_config.openai_model,
+            show_default=True
+        )
+        config_dict["openai_base_url"] = click.prompt(
+            "OpenAI Base URL",
+            default=current_config.openai_base_url,
+            show_default=True
+        )
+    elif embedding_provider == EmbeddingProvider.OLLAMA:
+        config_dict["ollama_url"] = click.prompt(
+            "Ollama URL",
+            default=current_config.ollama_url,
+            show_default=True
+        )
+        config_dict["embedding_model"] = click.prompt(
+            "Ollama Model",
+            default=current_config.embedding_model,
+            show_default=True
+        )
+    
+    # Vector provider selection
+    click.echo("\n🗄️ Select Vector Provider:")
+    for i, provider in enumerate(get_available_vector_providers(), 1):
+        default_marker = " (current)" if provider == str(current_config.vector_provider) else ""
+        click.echo(f"  {i}. {provider}{default_marker}")
+    
+    while True:
+        provider_choice = click.prompt(
+            "\nVector provider",
+            default=str(current_config.vector_provider),
+            show_default=True
+        )
+        try:
+            vector_provider = VectorProvider(provider_choice)
+            break
+        except ValueError:
+            click.echo(f"❌ Invalid provider: {provider_choice}")
+    
+    config_dict["vector_provider"] = vector_provider
+    
+    if vector_provider == VectorProvider.QDRANT_CLOUD:
+        config_dict["qdrant_cloud_url"] = click.prompt(
+            "Qdrant Cloud URL",
+            default=current_config.qdrant_cloud_url,
+            show_default=True
+        )
+        config_dict["qdrant_api_key"] = click.prompt(
+            "Qdrant Cloud API Key",
+            default=current_config.qdrant_api_key,
+            hide_input=True,
+            show_default=False
+        )
+    elif vector_provider == VectorProvider.QDRANT_LOCAL:
+        config_dict["qdrant_url"] = click.prompt(
+            "Qdrant Local URL",
+            default=current_config.qdrant_url,
+            show_default=True
+        )
+    
+    # Create new config and validate
+    new_config = Config(**{**current_config.to_dict(), **config_dict})
+    
+    try:
+        new_config.validate()
+        click.echo("\n✅ Configuration is valid!")
+    except ValueError as e:
+        click.echo(f"\n❌ Configuration error: {e}")
+        return
+    
+    # Show summary and confirm
+    click.echo(f"\n📋 Configuration Summary:")
+    click.echo(f"  Embedding Provider: {new_config.embedding_provider}")
+    click.echo(f"  Vector Provider: {new_config.vector_provider}")
+    
+    if click.confirm("\nSave this configuration?"):
+        # Generate .env content
+        env_content = _generate_env_content(new_config)
+        
+        # Ask where to save
+        save_path = click.prompt(
+            "Save to file",
+            default=".env",
+            show_default=True
+        )
+        
+        try:
+            with open(save_path, 'w') as f:
+                f.write(env_content)
+            click.echo(f"✅ Configuration saved to {save_path}")
+            click.echo("💡 Set these environment variables or source the file to use this configuration")
+        except Exception as e:
+            click.echo(f"❌ Failed to save configuration: {e}")
+    else:
+        click.echo("❌ Configuration not saved")
+
+
+@main.command(name="show-config")
+def show_config():
+    """Show current configuration."""
+    try:
+        config = Config.from_env()
+        
+        click.echo("🔧 Current Configuration\n")
+        
+        click.echo("📊 Embedding Provider:")
+        click.echo(f"  Provider: {config.embedding_provider}")
+        if config.embedding_provider == EmbeddingProvider.OLLAMA:
+            click.echo(f"  URL: {config.ollama_url}")
+            click.echo(f"  Model: {config.embedding_model}")
+        elif config.embedding_provider == EmbeddingProvider.OPENAI:
+            click.echo(f"  Model: {config.openai_model}")
+            click.echo(f"  Base URL: {config.openai_base_url}")
+            api_key_preview = config.openai_api_key[:8] + "..." if config.openai_api_key else "Not set"
+            click.echo(f"  API Key: {api_key_preview}")
+        
+        click.echo("\n🗄️ Vector Provider:")
+        click.echo(f"  Provider: {config.vector_provider}")
+        if config.vector_provider == VectorProvider.QDRANT_LOCAL:
+            click.echo(f"  URL: {config.qdrant_url}")
+        elif config.vector_provider == VectorProvider.QDRANT_CLOUD:
+            click.echo(f"  URL: {config.qdrant_cloud_url}")
+            api_key_preview = config.qdrant_api_key[:8] + "..." if config.qdrant_api_key else "Not set"
+            click.echo(f"  API Key: {api_key_preview}")
+        
+        click.echo(f"\n⚙️ Other Settings:")
+        click.echo(f"  Collection: {config.qdrant_collection}")
+        click.echo(f"  Vector Size: {config.vector_size}")
+        click.echo(f"  Max Tokens: {config.max_tokens}")
+        
+    except Exception as e:
+        click.echo(f"❌ Failed to load configuration: {e}")
+
+
+@main.command(name="test-providers")
+@click.option("--embedding-provider", help="Embedding provider to test")
+@click.option("--vector-provider", help="Vector provider to test")
+@click.option("--openai-api-key", help="OpenAI API key")
+@click.option("--qdrant-cloud-url", help="Qdrant Cloud URL")
+@click.option("--qdrant-api-key", help="Qdrant Cloud API key")
+def test_providers(
+    embedding_provider: Optional[str] = None,
+    vector_provider: Optional[str] = None,
+    openai_api_key: Optional[str] = None,
+    qdrant_cloud_url: Optional[str] = None,
+    qdrant_api_key: Optional[str] = None
+):
+    """Test connectivity to specified providers."""
+    click.echo("🔍 Testing Provider Connectivity\n")
+    
+    # Get base config
+    config = Config.from_env()
+    
+    # Override with CLI options
+    if embedding_provider:
+        try:
+            config.embedding_provider = EmbeddingProvider(embedding_provider)
+        except ValueError:
+            click.echo(f"❌ Invalid embedding provider: {embedding_provider}")
+            return
+    
+    if vector_provider:
+        try:
+            config.vector_provider = VectorProvider(vector_provider)
+        except ValueError:
+            click.echo(f"❌ Invalid vector provider: {vector_provider}")
+            return
+    
+    # Override credentials
+    if openai_api_key:
+        config.openai_api_key = openai_api_key
+    if qdrant_cloud_url:
+        config.qdrant_cloud_url = qdrant_cloud_url
+    if qdrant_api_key:
+        config.qdrant_api_key = qdrant_api_key
+    
+    try:
+        config.validate()
+    except ValueError as e:
+        click.echo(f"❌ Configuration error: {e}")
+        return
+    
+    factory = ProviderFactory()
+    
+    # Test embedding provider
+    click.echo(f"📊 Testing {config.embedding_provider} embedding service...")
+    try:
+        embedding_config = config.get_embedding_service_config()
+        embedding_service = factory.get_embedding_service(
+            config.embedding_provider,
+            embedding_config
+        )
+        
+        if embedding_service.health_check():
+            click.echo("  ✅ Embedding service is healthy")
+        else:
+            click.echo("  ❌ Embedding service health check failed")
+    except Exception as e:
+        click.echo(f"  ❌ Embedding service error: {e}")
+    
+    # Test vector provider
+    click.echo(f"\n🗄️ Testing {config.vector_provider} vector service...")
+    try:
+        vector_config = config.get_vector_service_config()
+        vector_service = factory.get_vector_service(
+            config.vector_provider,
+            vector_config
+        )
+        
+        if vector_service.health_check():
+            click.echo("  ✅ Vector service is healthy")
+        else:
+            click.echo("  ❌ Vector service health check failed")
+    except Exception as e:
+        click.echo(f"  ❌ Vector service error: {e}")
+    
+    click.echo("\n✅ Provider connectivity test completed")
+
+
+def _generate_env_content(config: Config) -> str:
+    """Generate .env file content from configuration."""
+    lines = [
+        "# Multi-Provider Configuration",
+        "# Generated by KNUE Policy Vectorizer",
+        "",
+        "# Provider Selection",
+        f"EMBEDDING_PROVIDER={config.embedding_provider}",
+        f"VECTOR_PROVIDER={config.vector_provider}",
+        "",
+    ]
+    
+    if config.embedding_provider == EmbeddingProvider.OPENAI:
+        lines.extend([
+            "# OpenAI Configuration",
+            f"OPENAI_API_KEY={config.openai_api_key}",
+            f"OPENAI_MODEL={config.openai_model}",
+            f"OPENAI_BASE_URL={config.openai_base_url}",
+            "",
+        ])
+    
+    if config.embedding_provider == EmbeddingProvider.OLLAMA:
+        lines.extend([
+            "# Ollama Configuration",
+            f"OLLAMA_URL={config.ollama_url}",
+            f"OLLAMA_MODEL={config.embedding_model}",
+            "",
+        ])
+    
+    if config.vector_provider == VectorProvider.QDRANT_CLOUD:
+        lines.extend([
+            "# Qdrant Cloud Configuration",
+            f"QDRANT_CLOUD_URL={config.qdrant_cloud_url}",
+            f"QDRANT_API_KEY={config.qdrant_api_key}",
+            "",
+        ])
+    
+    if config.vector_provider == VectorProvider.QDRANT_LOCAL:
+        lines.extend([
+            "# Qdrant Local Configuration",
+            f"QDRANT_URL={config.qdrant_url}",
+            "",
+        ])
+    
+    lines.extend([
+        "# Common Settings",
+        f"COLLECTION_NAME={config.qdrant_collection}",
+        f"VECTOR_SIZE={config.vector_size}",
+        f"MAX_TOKEN_LENGTH={config.max_tokens}",
+        f"LOG_LEVEL={config.log_level}",
+    ])
+    
+    return "\n".join(lines)
+
+
 @main.command()
 @click.option("--config-file", help="Path to configuration file")
-def sync(config_file: Optional[str] = None):
+@click.option("--embedding-provider", help="Override embedding provider")
+@click.option("--vector-provider", help="Override vector provider")
+@click.option("--openai-api-key", help="Override OpenAI API key")
+@click.option("--qdrant-cloud-url", help="Override Qdrant Cloud URL")
+@click.option("--qdrant-api-key", help="Override Qdrant Cloud API key")
+def sync(
+    config_file: Optional[str] = None,
+    embedding_provider: Optional[str] = None,
+    vector_provider: Optional[str] = None,
+    openai_api_key: Optional[str] = None,
+    qdrant_cloud_url: Optional[str] = None,
+    qdrant_api_key: Optional[str] = None
+):
     """Perform incremental synchronization."""
     config = Config.from_env() if config_file is None else Config()
+    
+    # Apply CLI overrides
+    if embedding_provider:
+        try:
+            config.embedding_provider = EmbeddingProvider(embedding_provider)
+        except ValueError:
+            click.echo(f"❌ Invalid embedding provider: {embedding_provider}")
+            return
+    
+    if vector_provider:
+        try:
+            config.vector_provider = VectorProvider(vector_provider)
+        except ValueError:
+            click.echo(f"❌ Invalid vector provider: {vector_provider}")
+            return
+    
+    if openai_api_key:
+        config.openai_api_key = openai_api_key
+    if qdrant_cloud_url:
+        config.qdrant_cloud_url = qdrant_cloud_url
+    if qdrant_api_key:
+        config.qdrant_api_key = qdrant_api_key
+    
+    # Validate configuration
+    try:
+        config.validate()
+    except ValueError as e:
+        click.echo(f"❌ Configuration error: {e}")
+        return
+    
     pipeline = SyncPipeline(config)
 
     # Health check first
@@ -554,7 +923,20 @@ def sync(config_file: Optional[str] = None):
 @main.command()
 @click.option("--config-file", help="Path to configuration file")
 @click.option("--yes", is_flag=True, help="Skip confirmation prompt")
-def reindex(config_file: Optional[str] = None, yes: bool = False):
+@click.option("--embedding-provider", help="Override embedding provider")
+@click.option("--vector-provider", help="Override vector provider")
+@click.option("--openai-api-key", help="Override OpenAI API key")
+@click.option("--qdrant-cloud-url", help="Override Qdrant Cloud URL")
+@click.option("--qdrant-api-key", help="Override Qdrant Cloud API key")
+def reindex(
+    config_file: Optional[str] = None, 
+    yes: bool = False,
+    embedding_provider: Optional[str] = None,
+    vector_provider: Optional[str] = None,
+    openai_api_key: Optional[str] = None,
+    qdrant_cloud_url: Optional[str] = None,
+    qdrant_api_key: Optional[str] = None
+):
     """Perform full reindexing (WARNING: This will recreate the collection)."""
     if not yes:
         if not click.confirm(
@@ -564,6 +946,36 @@ def reindex(config_file: Optional[str] = None, yes: bool = False):
             return
 
     config = Config.from_env() if config_file is None else Config()
+    
+    # Apply CLI overrides
+    if embedding_provider:
+        try:
+            config.embedding_provider = EmbeddingProvider(embedding_provider)
+        except ValueError:
+            click.echo(f"❌ Invalid embedding provider: {embedding_provider}")
+            return
+    
+    if vector_provider:
+        try:
+            config.vector_provider = VectorProvider(vector_provider)
+        except ValueError:
+            click.echo(f"❌ Invalid vector provider: {vector_provider}")
+            return
+    
+    if openai_api_key:
+        config.openai_api_key = openai_api_key
+    if qdrant_cloud_url:
+        config.qdrant_cloud_url = qdrant_cloud_url
+    if qdrant_api_key:
+        config.qdrant_api_key = qdrant_api_key
+    
+    # Validate configuration
+    try:
+        config.validate()
+    except ValueError as e:
+        click.echo(f"❌ Configuration error: {e}")
+        return
+    
     pipeline = SyncPipeline(config)
 
     # Health check first
@@ -588,9 +1000,51 @@ def reindex(config_file: Optional[str] = None, yes: bool = False):
 
 @main.command()
 @click.option("--config-file", help="Path to configuration file")
-def health(config_file: Optional[str] = None):
+@click.option("--embedding-provider", help="Override embedding provider")
+@click.option("--vector-provider", help="Override vector provider")
+@click.option("--openai-api-key", help="Override OpenAI API key")
+@click.option("--qdrant-cloud-url", help="Override Qdrant Cloud URL")
+@click.option("--qdrant-api-key", help="Override Qdrant Cloud API key")
+def health(
+    config_file: Optional[str] = None,
+    embedding_provider: Optional[str] = None,
+    vector_provider: Optional[str] = None,
+    openai_api_key: Optional[str] = None,
+    qdrant_cloud_url: Optional[str] = None,
+    qdrant_api_key: Optional[str] = None
+):
     """Check health of all services."""
     config = Config.from_env() if config_file is None else Config()
+    
+    # Apply CLI overrides
+    if embedding_provider:
+        try:
+            config.embedding_provider = EmbeddingProvider(embedding_provider)
+        except ValueError:
+            click.echo(f"❌ Invalid embedding provider: {embedding_provider}")
+            return
+    
+    if vector_provider:
+        try:
+            config.vector_provider = VectorProvider(vector_provider)
+        except ValueError:
+            click.echo(f"❌ Invalid vector provider: {vector_provider}")
+            return
+    
+    if openai_api_key:
+        config.openai_api_key = openai_api_key
+    if qdrant_cloud_url:
+        config.qdrant_cloud_url = qdrant_cloud_url
+    if qdrant_api_key:
+        config.qdrant_api_key = qdrant_api_key
+    
+    # Validate configuration
+    try:
+        config.validate()
+    except ValueError as e:
+        click.echo(f"❌ Configuration error: {e}")
+        return
+    
     pipeline = SyncPipeline(config)
 
     click.echo("🔍 Checking service health...")
