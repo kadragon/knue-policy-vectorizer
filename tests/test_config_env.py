@@ -5,9 +5,8 @@ import sys
 
 import pytest
 
-
 # Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 def test_config_from_env_supports_legacy_and_canonical_keys(monkeypatch):
@@ -88,4 +87,3 @@ def test_config_from_env_supports_legacy_and_canonical_keys(monkeypatch):
     assert cfg2.qdrant_collection == "legacy_collection"
     assert cfg2.embedding_model == "legacy-model"
     assert cfg2.max_tokens == 2048
-
