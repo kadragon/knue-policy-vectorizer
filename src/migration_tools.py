@@ -20,14 +20,25 @@ from datetime import datetime
 import structlog
 from tqdm import tqdm
 
-from .config import Config
-from .providers import (
-    EmbeddingProvider, 
-    VectorProvider, 
-    ProviderFactory,
-    EmbeddingServiceInterface,
-    VectorServiceInterface
-)
+# Support both package and standalone imports
+try:
+    from .config import Config
+    from .providers import (
+        EmbeddingProvider,
+        VectorProvider,
+        ProviderFactory,
+        EmbeddingServiceInterface,
+        VectorServiceInterface,
+    )
+except Exception:  # pragma: no cover - fallback when imported as a script
+    from config import Config  # type: ignore
+    from providers import (  # type: ignore
+        EmbeddingProvider,
+        VectorProvider,
+        ProviderFactory,
+        EmbeddingServiceInterface,
+        VectorServiceInterface,
+    )
 
 logger = structlog.get_logger(__name__)
 
@@ -579,8 +590,8 @@ def create_migration_config(
     # Base configuration
     base_config = Config.from_env()
     
-    # Source configuration
-    source_config_dict = base_config.to_dict()
+    # Source configuration (copy to avoid shared dict from mocks)
+    source_config_dict = dict(base_config.to_dict())
     source_config_dict.update({
         "embedding_provider": EmbeddingProvider(source_embedding),
         "vector_provider": VectorProvider(source_vector)
@@ -588,8 +599,8 @@ def create_migration_config(
     source_config_dict.update(kwargs.get('source_overrides', {}))
     source_config = Config.from_dict(source_config_dict)
     
-    # Target configuration  
-    target_config_dict = base_config.to_dict()
+    # Target configuration (separate copy)
+    target_config_dict = dict(base_config.to_dict())
     target_config_dict.update({
         "embedding_provider": EmbeddingProvider(target_embedding),
         "vector_provider": VectorProvider(target_vector)
