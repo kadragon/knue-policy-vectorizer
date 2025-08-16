@@ -187,42 +187,29 @@ class GitWatcher:
             deleted_files = []
             renamed_files = []
 
+            def is_relevant_md(path: Optional[str]) -> bool:
+                """Checks if a path is a relevant markdown file."""
+                if not path or not path.endswith(".md"):
+                    return False
+                if Path(path).name.upper().startswith("README"):
+                    self.logger.debug(
+                        "Excluding README file from changes", file_path=path
+                    )
+                    return False
+                return True
+
             for item in diff:
                 if item.change_type == "R":  # Renamed
-                    # For renames, check both old and new paths
-                    old_path = item.a_path
-                    new_path = item.b_path
-
-                    # Only process if either path is a markdown file (excluding README*)
-                    old_is_md = (
-                        old_path
-                        and old_path.endswith(".md")
-                        and not Path(old_path).name.upper().startswith("README")
-                    )
-                    new_is_md = (
-                        new_path
-                        and new_path.endswith(".md")
-                        and not Path(new_path).name.upper().startswith("README")
-                    )
-
-                    if old_is_md or new_is_md:
+                    old_path, new_path = item.a_path, item.b_path
+                    if is_relevant_md(old_path) or is_relevant_md(new_path):
                         renamed_files.append((old_path, new_path))
                         self.logger.debug(
                             "Detected rename", old_path=old_path, new_path=new_path
                         )
                     continue
 
-                # For other change types, process single file path
                 file_path = item.a_path or item.b_path
-                if not file_path or not file_path.endswith(".md"):
-                    continue
-
-                # Exclude README*.md files
-                filename = Path(file_path).name
-                if filename.upper().startswith("README"):
-                    self.logger.debug(
-                        "Excluding README file from changes", file_path=file_path
-                    )
+                if not is_relevant_md(file_path):
                     continue
 
                 if item.change_type == "A":  # Added
