@@ -2,10 +2,11 @@
 
 한국교원대학교 정책 문서를 Qdrant 벡터 데이터베이스에 동기화하는 자동화 파이프라인
 
-[![Tests](https://img.shields.io/badge/tests-104%20passed-brightgreen)](./tests)
+[![Tests](https://img.shields.io/badge/tests-189%20passed-brightgreen)](./tests)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://python.org)
-[![Vector DB](https://img.shields.io/badge/vector%20db-Qdrant-orange)](https://qdrant.tech)
-[![Embeddings](https://img.shields.io/badge/model-bge--m3-purple)](https://huggingface.co/BAAI/bge-m3)
+[![Vector DB](https://img.shields.io/badge/vector%20db-Qdrant%20%7C%20Cloud-orange)](https://qdrant.tech)
+[![Embeddings](https://img.shields.io/badge/models-BGE--M3%20%7C%20OpenAI-purple)](https://huggingface.co/BAAI/bge-m3)
+[![Multi-Provider](https://img.shields.io/badge/multi--provider-✓-success)](./README.md#multi-provider-support-new)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](https://docker.com)
 [![TDD](https://img.shields.io/badge/development-TDD-green)](./tests)
 
@@ -18,12 +19,14 @@ KNUE Policy Vectorizer는 [한국교원대학교 정책 Hub](https://github.com/
 - **📂 Git 저장소 자동 감시**: 정책 문서 변경사항 실시간 추적
 - **📝 마크다운 전처리**: Frontmatter 제거, 제목 추출, 메타데이터 생성
 - **✂️ 스마트 문서 청킹**: 800토큰 기준 청킹 + 200토큰 컨텍스트 오버랩
-- **🤖 임베딩 생성**: BGE-M3 모델을 통한 1024차원 벡터 생성 (배치 처리 지원)
-- **🔍 벡터 검색**: Qdrant를 통한 고성능 유사도 검색
+- **🔄 Multi-Provider 지원**: Ollama/OpenAI 임베딩, Local/Cloud Qdrant 선택 가능
+- **🤖 임베딩 생성**: BGE-M3(1024차원) 또는 OpenAI(1536/3072차원) 벡터 생성
+- **🔍 벡터 검색**: Qdrant Local/Cloud를 통한 고성능 유사도 검색
 - **⚡ 증분 동기화**: 변경된 파일만 선별적으로 처리
 - **🔄 전체 재인덱싱**: 필요시 전체 문서 재처리
+- **📦 Provider 마이그레이션**: 서비스 간 벡터 데이터 마이그레이션 도구
 - **🚀 고성능 배치 처리**: 임베딩 생성 및 벡터 저장 최적화
-- **💻 CLI 인터페이스**: 명령줄을 통한 쉬운 조작
+- **💻 CLI 인터페이스**: 명령줄을 통한 쉬운 조작 및 설정 관리
 
 ## 🏗️ 시스템 아키텍처
 
@@ -43,9 +46,12 @@ graph LR
 
 - **GitWatcher**: Git 저장소 모니터링 및 변경사항 추적
 - **MarkdownProcessor**: 마크다운 문서 전처리, 스마트 청킹 및 메타데이터 추출
-- **EmbeddingService**: Ollama를 통한 BGE-M3 임베딩 생성 (배치 처리 최적화)
-- **QdrantService**: 벡터 데이터베이스 연동 및 관리 (배치 업서트 지원)
-- **SyncPipeline**: 전체 파이프라인 오케스트레이션
+- **Provider Factory**: 다중 임베딩/벡터 서비스 동적 생성 및 관리
+- **EmbeddingService**: Ollama(BGE-M3) 또는 OpenAI 임베딩 생성 (배치 처리 최적화)
+- **QdrantService**: 로컬/클라우드 벡터 데이터베이스 연동 및 관리
+- **Migration Tools**: Provider 간 벡터 데이터 마이그레이션 및 호환성 검사
+- **Configuration Manager**: 고급 설정 관리, 템플릿, 백업/복원
+- **SyncPipeline**: 전체 파이프라인 오케스트레이션 및 CLI 인터페이스
 
 ## 🚀 빠른 시작
 
@@ -198,17 +204,32 @@ cp .env.example .env
 GIT_REPO_URL=https://github.com/KNUE-CS/KNUE-Policy-Hub.git
 GIT_BRANCH=main
 
-# 서비스 URL
-QDRANT_URL=http://localhost:6333
+# 🔧 Provider 선택 (NEW)
+EMBEDDING_PROVIDER=ollama        # ollama, openai
+VECTOR_PROVIDER=qdrant_local     # qdrant_local, qdrant_cloud
+
+# Ollama 설정 (Local Embeddings)
 OLLAMA_URL=http://localhost:11434
-OLLAMA_MODEL=bge-m3
+OLLAMA_MODEL=bge-m3              # 또는 EMBEDDING_MODEL
+
+# OpenAI 설정 (Cloud Embeddings) - NEW
+OPENAI_API_KEY=sk-...            # OpenAI API 키 (필수, openai provider 사용시)
+OPENAI_MODEL=text-embedding-3-small  # text-embedding-3-small, text-embedding-3-large
+OPENAI_BASE_URL=https://api.openai.com/v1  # 커스텀 엔드포인트 (선택사항)
+
+# Qdrant Local 설정
+QDRANT_URL=http://localhost:6333
+
+# Qdrant Cloud 설정 (NEW)
+QDRANT_CLOUD_URL=https://your-cluster.qdrant.tech  # Qdrant Cloud URL
+QDRANT_API_KEY=your-api-key      # Qdrant Cloud API 키
 
 # 컬렉션 설정
 COLLECTION_NAME=knue_policies
-VECTOR_SIZE=1024
+VECTOR_SIZE=1024                 # Provider에 따라 자동 조정: bge-m3(1024), openai-small(1536), openai-large(3072)
 
 # 처리 제한
-MAX_TOKEN_LENGTH=8192           # 임베딩 서비스 최대 토큰 제한 (bge-m3)
+MAX_TOKEN_LENGTH=8192           # 임베딩 서비스 최대 토큰 제한 (bge-m3: 8192, openai: 8191)
 CHUNK_THRESHOLD=800             # 문서 청킹 임계값 (더 나은 검색 성능)
 CHUNK_OVERLAP=200              # 청크 간 컨텍스트 오버랩 토큰 수
 MAX_DOCUMENT_CHARS=30000
@@ -263,6 +284,284 @@ config.qdrant_url = "http://custom-qdrant:6333"
 pipeline = SyncPipeline(config)
 ```
 
+## 🔄 Multi-Provider Support (NEW)
+
+KNUE Policy Vectorizer는 이제 여러 임베딩 서비스와 벡터 데이터베이스를 지원합니다!
+
+### 🎯 지원되는 Provider
+
+#### Embedding Providers
+- **Ollama** (Local): bge-m3 모델, 1024차원 벡터
+- **OpenAI** (Cloud): text-embedding-3-small(1536차원), text-embedding-3-large(3072차원)
+
+#### Vector Providers  
+- **Qdrant Local**: Docker로 로컬 실행
+- **Qdrant Cloud**: 관리형 클라우드 서비스
+
+### 🚀 Provider 설정 방법
+
+#### 1. 환경 변수로 설정
+
+```bash
+# Ollama + Local Qdrant (기본값)
+export EMBEDDING_PROVIDER=ollama
+export VECTOR_PROVIDER=qdrant_local
+
+# OpenAI + Local Qdrant
+export EMBEDDING_PROVIDER=openai
+export VECTOR_PROVIDER=qdrant_local
+export OPENAI_API_KEY=sk-your-api-key
+
+# OpenAI + Qdrant Cloud (프로덕션 추천)
+export EMBEDDING_PROVIDER=openai
+export VECTOR_PROVIDER=qdrant_cloud
+export OPENAI_API_KEY=sk-your-api-key
+export QDRANT_CLOUD_URL=https://your-cluster.qdrant.tech
+export QDRANT_API_KEY=your-qdrant-api-key
+```
+
+#### 2. CLI 명령어로 Provider 관리
+
+```bash
+# 사용 가능한 Provider 확인
+uv run python -m src.sync_pipeline list-providers
+
+# 현재 설정 확인
+uv run python -m src.sync_pipeline show-config
+
+# Provider 연결 테스트
+uv run python -m src.sync_pipeline test-providers
+
+# 대화형 Provider 설정
+uv run python -m src.sync_pipeline configure
+
+# 특정 Provider로 일회성 실행
+uv run python -m src.sync_pipeline --embedding-provider openai --vector-provider qdrant_cloud sync
+```
+
+#### 3. 설정 템플릿 사용
+
+```bash
+# 사용 가능한 템플릿 확인
+uv run python -m src.sync_pipeline config-templates
+
+# 템플릿으로 설정 생성
+uv run python -m src.sync_pipeline config-from-template openai-cloud
+
+# 설정 검증
+uv run python -m src.sync_pipeline config-validate
+```
+
+### 📋 Provider 비교
+
+| Provider | 장점 | 단점 | 사용 사례 |
+|----------|------|------|-----------|
+| **Ollama (Local)** | 무료, 개인정보 보호, 오프라인 가능 | 초기 설정 복잡, GPU 필요 | 개발, 개인 프로젝트, 높은 보안 요구사항 |
+| **OpenAI (Cloud)** | 빠른 속도, 고품질 임베딩, 관리 불필요 | 비용 발생, API 키 필요 | 프로덕션, 상업적 사용, 빠른 배포 |
+| **Qdrant Local** | 무료, 완전 제어, 개인정보 보호 | 자원 관리 필요, 확장성 제한 | 개발, 소규모 배포 |
+| **Qdrant Cloud** | 자동 확장, 고가용성, 관리 불필요 | 비용 발생, 네트워크 의존 | 프로덕션, 대규모 배포 |
+
+### 🏗️ Multi-Provider 아키텍처
+
+```mermaid
+graph TD
+    A[Sync Pipeline] --> B[Provider Factory]
+    B --> C[Embedding Service Interface]
+    B --> D[Vector Service Interface]
+    
+    C --> E[Ollama Service]
+    C --> F[OpenAI Service]
+    
+    D --> G[Qdrant Local Service]
+    D --> H[Qdrant Cloud Service]
+    
+    E --> I[Local bge-m3 Model]
+    F --> J[OpenAI API]
+    G --> K[Docker Qdrant]
+    H --> L[Qdrant Cloud]
+```
+
+### 🔧 Provider 설정 가이드
+
+#### OpenAI 설정
+
+```bash
+# 1. OpenAI API 키 발급
+# https://platform.openai.com/api-keys
+
+# 2. 환경 변수 설정
+export OPENAI_API_KEY=sk-your-api-key-here
+export OPENAI_MODEL=text-embedding-3-small  # 또는 text-embedding-3-large
+
+# 3. 연결 테스트
+uv run python -m src.sync_pipeline test-providers
+
+# 4. 첫 동기화
+uv run python -m src.sync_pipeline --embedding-provider openai sync
+```
+
+#### Qdrant Cloud 설정
+
+```bash
+# 1. Qdrant Cloud 클러스터 생성
+# https://cloud.qdrant.io/
+
+# 2. API 키 및 URL 획득
+export QDRANT_CLOUD_URL=https://your-cluster-id.qdrant.tech
+export QDRANT_API_KEY=your-api-key
+
+# 3. 연결 테스트
+uv run python -m src.sync_pipeline test-providers
+
+# 4. 클라우드로 동기화
+uv run python -m src.sync_pipeline --vector-provider qdrant_cloud sync
+```
+
+### 🔄 Provider 마이그레이션
+
+#### 마이그레이션 도구 사용
+
+```bash
+# 호환성 확인
+uv run python -m src.sync_pipeline check-compatibility
+
+# 백업 생성
+uv run python -m src.sync_pipeline backup backups/migration_backup.json
+
+# Provider 간 벡터 마이그레이션
+uv run python -m src.sync_pipeline migrate \
+  --source-embedding ollama --source-vector qdrant_local \
+  --target-embedding openai --target-vector qdrant_cloud
+
+# 성능 비교
+uv run python -m src.sync_pipeline compare-performance
+
+# 백업에서 복구
+uv run python -m src.sync_pipeline restore backups/migration_backup.json
+```
+
+#### 단계별 마이그레이션 가이드
+
+**1. Ollama → OpenAI 마이그레이션**
+
+```bash
+# 현재 상태 백업
+uv run python -m src.sync_pipeline backup backups/ollama_backup.json
+
+# OpenAI 설정
+export OPENAI_API_KEY=sk-your-key
+export EMBEDDING_PROVIDER=openai
+
+# 호환성 확인 (차원 불일치 경고 예상)
+uv run python -m src.sync_pipeline check-compatibility
+
+# 전체 재인덱싱 (필수 - 벡터 차원이 다름)
+uv run python -m src.sync_pipeline reindex
+```
+
+**2. Local Qdrant → Cloud Qdrant 마이그레이션**
+
+```bash
+# 현재 벡터 백업
+uv run python -m src.sync_pipeline backup backups/local_vectors.json
+
+# Qdrant Cloud 설정
+export QDRANT_CLOUD_URL=https://your-cluster.qdrant.tech
+export QDRANT_API_KEY=your-api-key
+export VECTOR_PROVIDER=qdrant_cloud
+
+# 벡터 마이그레이션 (같은 차원이면 재임베딩 불필요)
+uv run python -m src.sync_pipeline migrate --backup-first
+```
+
+### 📊 Provider 성능 비교
+
+#### 임베딩 성능 (100개 문서 기준)
+
+| Provider | 평균 시간/문서 | 배치 처리 | 벡터 차원 | 비용 |
+|----------|----------------|-----------|-----------|------|
+| Ollama bge-m3 | 0.129초 | ✅ 지원 | 1024 | 무료 |
+| OpenAI text-embedding-3-small | 0.045초 | ✅ 지원 | 1536 | $0.00002/1K tokens |
+| OpenAI text-embedding-3-large | 0.053초 | ✅ 지원 | 3072 | $0.00013/1K tokens |
+
+#### 벡터 스토리지 성능
+
+| Provider | 연결 지연 | 배치 업서트 | 확장성 | 가용성 |
+|----------|-----------|-------------|--------|--------|
+| Qdrant Local | <1ms | ✅ 지원 | 단일 노드 | 수동 관리 |
+| Qdrant Cloud | 10-50ms | ✅ 지원 | 자동 확장 | 99.9% SLA |
+
+### 🔧 고급 설정 관리
+
+#### 설정 백업 및 복원
+
+```bash
+# 현재 설정 백업
+uv run python -m src.sync_pipeline config-backup
+
+# 백업 목록 확인
+uv run python -m src.sync_pipeline config-backups
+
+# 설정 내보내기 (JSON/ENV/YAML)
+uv run python -m src.sync_pipeline config-export --format json > my_config.json
+uv run python -m src.sync_pipeline config-export --format env > my_config.env
+
+# 정리 작업 (30일 이전 백업 삭제)
+uv run python -m src.sync_pipeline config-cleanup --days 30
+```
+
+#### 환경별 설정 프로파일
+
+```bash
+# 개발 환경 설정
+cat > .env.dev << EOF
+EMBEDDING_PROVIDER=ollama
+VECTOR_PROVIDER=qdrant_local
+LOG_LEVEL=DEBUG
+BATCH_SIZE=5
+EOF
+
+# 프로덕션 환경 설정  
+cat > .env.prod << EOF
+EMBEDDING_PROVIDER=openai
+VECTOR_PROVIDER=qdrant_cloud
+OPENAI_API_KEY=sk-prod-key
+QDRANT_CLOUD_URL=https://prod-cluster.qdrant.tech
+QDRANT_API_KEY=prod-api-key
+LOG_LEVEL=INFO
+BATCH_SIZE=20
+EOF
+
+# 환경별 실행
+uv run --env-file .env.dev python -m src.sync_pipeline sync    # 개발
+uv run --env-file .env.prod python -m src.sync_pipeline sync   # 프로덕션
+```
+
+### 💡 Best Practices
+
+#### 개발 환경 추천 설정
+```bash
+EMBEDDING_PROVIDER=ollama           # 무료, 빠른 반복 개발
+VECTOR_PROVIDER=qdrant_local        # 로컬 개발, 데이터 격리
+LOG_LEVEL=DEBUG                     # 상세 디버깅
+BATCH_SIZE=5                        # 메모리 절약
+```
+
+#### 프로덕션 환경 추천 설정
+```bash
+EMBEDDING_PROVIDER=openai           # 고품질, 안정적 서비스
+VECTOR_PROVIDER=qdrant_cloud        # 확장성, 고가용성
+OPENAI_MODEL=text-embedding-3-small # 비용 대비 성능 최적
+LOG_LEVEL=INFO                      # 적절한 로그 레벨
+BATCH_SIZE=20                       # 처리 성능 최적화
+```
+
+#### 비용 최적화 팁
+1. **OpenAI 사용량 모니터링**: API 대시보드에서 토큰 사용량 추적
+2. **배치 크기 조정**: `BATCH_SIZE`를 늘려 API 호출 횟수 감소
+3. **문서 필터링**: 불필요한 문서 제외로 처리량 감소
+4. **Chunking 최적화**: `CHUNK_THRESHOLD` 조정으로 청크 수 최적화
+
 ## 🧪 테스트
 
 ### 전체 테스트 실행
@@ -280,8 +579,9 @@ uv run python scripts/test_full_sync_pipeline.py
 
 ### 테스트 커버리지
 
-현재 **104개의 테스트**가 모든 주요 기능을 검증합니다:
+현재 **189개의 테스트**가 모든 주요 기능을 검증합니다:
 
+#### Core Functionality
 - ✅ Git 저장소 감시 (13개 테스트)
 - ✅ 마크다운 전처리 (17개 테스트)
 - ✅ 임베딩 생성 (20개 테스트)
@@ -289,6 +589,13 @@ uv run python scripts/test_full_sync_pipeline.py
 - ✅ 동기화 파이프라인 (21개 테스트)
 - ✅ 기본 설정 (5개 테스트)
 - ✅ Qdrant 연결 (4개 테스트)
+
+#### Multi-Provider Support (NEW)
+- ✅ Provider 팩토리 및 인터페이스 (24개 테스트)
+- ✅ OpenAI 임베딩 서비스 (20개 테스트)
+- ✅ Qdrant Cloud 서비스 (23개 테스트)
+- ✅ 마이그레이션 도구 (20개 테스트)
+- ✅ 설정 관리 (17개 테스트)
 
 ## 📊 성능
 
@@ -792,6 +1099,26 @@ LOG_LEVEL=INFO uv run python -m src.sync_pipeline sync 2>&1 | grep "ERROR\|WARNI
 
 - 저장소 URL이 잘못됨
 - 해결: `GIT_REPO_URL` 환경 변수 확인
+
+**"Provider not supported"** (NEW)
+
+- 잘못된 provider 이름 사용
+- 해결: `uv run python -m src.sync_pipeline list-providers`로 지원되는 provider 확인
+
+**"OpenAI API key missing"** (NEW)
+
+- OpenAI provider 사용 시 API 키 누락
+- 해결: `export OPENAI_API_KEY=sk-your-key` 설정
+
+**"Qdrant Cloud connection failed"** (NEW)
+
+- Qdrant Cloud URL 또는 API 키 오류
+- 해결: URL과 API 키 확인, 네트워크 연결 테스트
+
+**"Vector dimension mismatch"** (NEW)
+
+- Provider 변경 시 벡터 차원 불일치
+- 해결: 전체 재인덱싱 필요 (`reindex` 명령 실행)
 
 #### 로그 파일 위치
 

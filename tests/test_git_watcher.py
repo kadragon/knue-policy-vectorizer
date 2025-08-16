@@ -379,3 +379,82 @@ def test_tempfile_operations():
     # Cleanup
     shutil.rmtree(temp_dir)
     assert not os.path.exists(temp_dir)
+
+
+class TestGitWatcherDetails:
+    """Additional tests for URL building, discovery rules, and sync behavior."""
+
+    def _make_watcher(self, tmp_path, repo_url="https://example.com/repo.git", branch="main"):
+        from git_watcher import GitWatcher
+
+        cache_dir = tmp_path / "cache"
+        config = {
+            "repo_url": repo_url,
+            "branch": branch,
+            "cache_dir": str(cache_dir),
+            "log_level": "INFO",
+        }
+        watcher = GitWatcher(config)
+        watcher._repo = Mock()  # Prevent real git operations
+        return watcher, cache_dir
+
+    @pytest.mark.parametrize(
+        "repo_url,branch,file_path,expected",
+        [
+            (
+                "https://github.com/test/repo.git",
+                "main",
+                "dir/file.md",
+                "https://github.com/test/repo/blob/main/dir/file.md",
+            ),
+            (
+                "https://github.com/test/repo",
+                "develop",
+                "한글/규정.md",
+                "https://github.com/test/repo/blob/develop/한글/규정.md",
+            ),
+        ],
+    )
+    def test_get_github_file_url(self, tmp_path, repo_url, branch, file_path, expected):
+        watcher, _ = self._make_watcher(tmp_path, repo_url=repo_url, branch=branch)
+        assert watcher.get_github_file_url(file_path) == expected
+
+    def test_markdown_discovery_excludes_readme_nested(self, tmp_path):
+        watcher, cache_dir = self._make_watcher(tmp_path)
+
+        # Create nested structure with README files and markdowns
+        (cache_dir / "sub").mkdir(parents=True, exist_ok=True)
+        (cache_dir / "README.md").write_text("# Top Readme")
+        (cache_dir / "sub" / "README.md").write_text("# Nested Readme")
+        (cache_dir / "policy1.md").write_text("# Policy 1")
+        (cache_dir / "sub" / "policy2.md").write_text("# Policy 2")
+        (cache_dir / "notes.txt").write_text("not markdown")
+
+        files = watcher.get_markdown_files()
+        assert files == ["policy1.md", "sub/policy2.md"]
+
+    def test_get_file_content_missing_raises(self, tmp_path):
+        watcher, _ = self._make_watcher(tmp_path)
+        with pytest.raises(FileNotFoundError):
+            watcher.get_file_content("does/not/exist.md")
+
+    def test_sync_repository_change_detection(self, tmp_path):
+        watcher, _ = self._make_watcher(tmp_path)
+
+        mock_repo = watcher._repo
+        mock_head = Mock()
+        mock_commit = Mock()
+        mock_commit.hexsha = "old_sha"
+        mock_head.commit = mock_commit
+        mock_repo.head = mock_head
+
+        def _pull_side_effect():
+            # After pull, HEAD should point to a new commit
+            mock_commit.hexsha = "new_sha"
+
+        with patch.object(watcher, "pull_updates", side_effect=_pull_side_effect) as mock_pull:
+            new_commit, has_changes = watcher.sync_repository()
+
+        assert mock_pull.called is True
+        assert new_commit == "new_sha"
+        assert has_changes is True
