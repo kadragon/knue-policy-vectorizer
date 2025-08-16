@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 from typing import Optional
 
@@ -9,9 +10,12 @@ from colorama import Fore, Style, init
 init(autoreset=True)
 
 
-def setup_logger(log_level: str = "INFO", logger_name: Optional[str] = None) -> structlog.BoundLogger:
+def setup_logger(log_level: Optional[str] = None, logger_name: Optional[str] = None) -> structlog.BoundLogger:
     """Set up structured logging with colors."""
-    
+    # Default to environment LOG_LEVEL when not provided explicitly
+    if log_level is None:
+        log_level = os.getenv("LOG_LEVEL", "INFO")
+
     # Configure standard logging
     logging.basicConfig(
         level=getattr(logging, log_level.upper()),

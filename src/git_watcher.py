@@ -24,7 +24,7 @@ class GitWatcher:
         self.repo_url = config['repo_url']
         self.branch = config['branch']
         self.cache_dir = Path(config['cache_dir'])
-        self.logger = setup_logger("INFO", "GitWatcher")
+        self.logger = setup_logger(config.get("log_level", "INFO"), "GitWatcher")
         
         # Ensure cache directory exists
         self.cache_dir.mkdir(parents=True, exist_ok=True)
