@@ -188,6 +188,44 @@ uv run python -m src.sync_pipeline reindex
 #   - Total vectors: 98
 ```
 
+#### 4. KNUE 게시판 동기화 (신규)
+
+교원대 홈페이지 게시판의 RSS를 읽고, 상세 HTML을 파싱해 Qdrant 컬렉션(`www-board-data`)에 저장합니다.
+
+```bash
+# 기본: .env의 BOARD_INDICES 사용
+uv run python -m src.sync_pipeline board-sync
+
+# 특정 게시판만 지정해서 실행 (반복 지정 가능)
+uv run python -m src.sync_pipeline board-sync --board-idx 25 --board-idx 26
+```
+
+동작 방식:
+- 최초 실행: 해당 게시판(`board_idx`)에 기존 데이터가 없으면 RSS의 모든 항목을 1회 전체 색인합니다.
+- 이후 실행: `BOARD_MAX_AGE_DAYS` 내의 최신 글만 증분 색인합니다.
+
+환경 변수:
+- `BOARD_RSS_TEMPLATE` (기본: https://www.knue.ac.kr/rssBbsNtt.do?bbsNo={board_idx})
+- `BOARD_INDICES` (예: 25,26,11,207,28,256)
+- `QDRANT_BOARD_COLLECTION` (기본: www-board-data)
+- `BOARD_MAX_AGE_DAYS` (기본: 1)
+- 게시판 청킹은 전역 `CHUNK_THRESHOLD` / `CHUNK_OVERLAP` 값을 그대로 사용합니다.
+
+임베딩 프로바이더는 기존 설정을 그대로 사용합니다. OpenAI 대형 임베딩을 사용하려면 다음을 설정하세요:
+
+```env
+EMBEDDING_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=text-embedding-3-large
+```
+
+스케줄링(예시, 매일 새벽 1시):
+
+```cron
+0 1 * * * cd /path/to/knue-policy-vectorizer && \
+  uv run python -m src.sync_pipeline board-sync >> logs/board_sync.log 2>&1
+```
+
 ### 환경 설정
 
 `.env` 파일을 생성하여 설정을 커스터마이즈할 수 있습니다:

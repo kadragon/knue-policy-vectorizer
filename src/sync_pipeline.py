@@ -863,6 +863,11 @@ def test_providers(
     "--backup/--no-backup", default=True, help="Create backup before migration"
 )
 @click.option("--dry-run", is_flag=True, help="Check compatibility without migrating")
+@click.option(
+    "--save-report/--no-save-report",
+    default=False,
+    help="Save migration report to file (default: no)",
+)
 @click.option("--openai-api-key", help="OpenAI API key for migration")
 @click.option("--qdrant-cloud-url", help="Qdrant Cloud URL for migration")
 @click.option("--qdrant-api-key", help="Qdrant Cloud API key for migration")
@@ -874,11 +879,17 @@ def migrate_providers(
     batch_size: int,
     backup: bool,
     dry_run: bool,
+    save_report: bool,
     openai_api_key: Optional[str] = None,
     qdrant_cloud_url: Optional[str] = None,
     qdrant_api_key: Optional[str] = None,
 ):
-    """Migrate data between different provider configurations."""
+    """Migrate data between different provider configurations.
+
+    ⚠️  WARNING: This operation will transfer ALL vector data from source to target.
+    Use --dry-run first to check compatibility without migrating.
+    Always ensure you have backups before proceeding.
+    """
     click.echo("🔄 Provider Migration Tool\n")
 
     try:
@@ -953,15 +964,31 @@ def migrate_providers(
             click.echo("\n✅ Dry run completed - no data migrated")
             return
 
-        # Confirm migration
+        # Confirm migration with multiple safety checks
         click.echo(f"\n📋 Migration Plan:")
         click.echo(f"  From: {from_embedding}/{from_vector}")
         click.echo(f"  To: {to_embedding}/{to_vector}")
         click.echo(f"  Batch Size: {batch_size}")
         click.echo(f"  Backup: {'Yes' if backup else 'No'}")
 
-        if not click.confirm("\nProceed with migration?"):
+        # First confirmation
+        if not click.confirm(
+            "\n⚠️  This will migrate ALL your vector data. Are you sure?"
+        ):
             click.echo("❌ Migration cancelled")
+            return
+
+        # Second confirmation for safety
+        confirmation_text = (
+            f"{from_embedding}/{from_vector}-to-{to_embedding}/{to_vector}"
+        )
+        user_input = click.prompt(
+            f"\n🔒 For safety, please type '{confirmation_text}' to confirm migration",
+            type=str,
+        )
+
+        if user_input != confirmation_text:
+            click.echo("❌ Migration cancelled - confirmation text did not match")
             return
 
         # Perform migration
@@ -990,14 +1017,17 @@ def migrate_providers(
             if len(report.errors) > 5:
                 click.echo(f"  ... and {len(report.errors) - 5} more errors")
 
-        # Save migration report
-        import json
-        from datetime import datetime
+        # Save migration report only if requested
+        if save_report:
+            import json
+            from datetime import datetime
 
-        report_file = f"migration_report_{int(report.start_time.timestamp())}.json"
-        with open(report_file, "w") as f:
-            json.dump(report.to_dict(), f, indent=2)
-        click.echo(f"\n📄 Migration report saved to: {report_file}")
+            report_file = f"migration_report_{int(report.start_time.timestamp())}.json"
+            with open(report_file, "w") as f:
+                json.dump(report.to_dict(), f, indent=2)
+            click.echo(f"\n📄 Migration report saved to: {report_file}")
+        else:
+            click.echo(f"\n💬 Migration report not saved (use --save-report to save)")
 
         if report.success_rate >= 95:
             click.echo("\n🎉 Migration completed successfully!")
