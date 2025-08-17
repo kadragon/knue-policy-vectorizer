@@ -16,6 +16,7 @@ from email.utils import parsedate_to_datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from urllib.parse import urljoin, urlparse
 
+import requests
 import structlog
 
 try:  # Local imports for package and script contexts
@@ -61,7 +62,6 @@ class KnueBoardIngestor:
 
     # --------- HTTP helpers ---------
     def _http_get(self, url: str, timeout: int = 15) -> str:
-        import requests
 
         headers = {
             "User-Agent": (
@@ -106,7 +106,7 @@ class KnueBoardIngestor:
         items: List[BoardItem] = []
         try:
             root = ET.fromstring(xml_text)
-        except Exception:
+        except ET.ParseError:
             # As a last resort, try to strip control chars and parse again
             cleaned = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", "", xml_text)
             root = ET.fromstring(cleaned)
@@ -207,17 +207,22 @@ class KnueBoardIngestor:
         # Decode entities (once is usually enough; double decode can eat placeholders)
         text = unescape(protected)
 
-        # Remove script/style contents entirely
-        text = re.sub(r"(?is)<script[^>]*>.*?</script>", " ", text)
-        text = re.sub(r"(?is)<style[^>]*>.*?</style>", " ", text)
+        # Parse HTML and ignore script/style content via the parser
 
         class _Extractor(HTMLParser):
             def __init__(self):
                 super().__init__(convert_charrefs=True)
                 self.parts: List[str] = []
+                self._skip_depth: int = 0  # inside <script>/<style>
 
             def handle_starttag(self, tag, attrs):
                 t = tag.lower()
+                if t in {"script", "style"}:
+                    # Enter skip mode for script/style content
+                    self._skip_depth += 1
+                    return
+                if self._skip_depth > 0:
+                    return
                 if t in {"br"}:
                     self.parts.append("\n")
                 elif t in {
@@ -241,12 +246,24 @@ class KnueBoardIngestor:
 
             def handle_endtag(self, tag):
                 t = tag.lower()
+                if t in {"script", "style"}:
+                    if self._skip_depth > 0:
+                        self._skip_depth -= 1
+                    return
+                if self._skip_depth > 0:
+                    return
                 if t in {"p", "div", "tr", "ul", "ol", "table"}:
                     self.parts.append("\n")
 
             def handle_data(self, data):
+                if self._skip_depth > 0:
+                    return
                 if data:
                     self.parts.append(data)
+
+        # Normalize malformed end tags like '</script foo="bar">' or '</script >'
+        # so that HTMLParser can correctly recognize them.
+        text = re.sub(r"(?is)</(script|style)\b[^>]*>", r"</\1>", text)
 
         parser = _Extractor()
         try:
@@ -302,35 +319,29 @@ class KnueBoardIngestor:
         return text.strip()
 
     def _parse_detail(self, html: str, base_url: str) -> ParsedDetail:
+        from bs4 import BeautifulSoup
+
+        soup = BeautifulSoup(html, "html.parser")
+
         # title: .p-table__subject_text
         title = ""
-        m_title = re.search(
-            r'<[^>]*class=["\']p-table__subject_text["\'][^>]*>(.*?)</[^>]+>',
-            html,
-            re.S | re.I,
-        )
-        if m_title:
-            title = self._strip_html(m_title.group(1)).strip()
+        title_elem = soup.select_one(".p-table__subject_text")
+        if title_elem:
+            title = self._strip_html(str(title_elem)).strip()
 
         # content: .p-table__content (keep text only)
         content = ""
-        m_content = re.search(
-            r'<[^>]*class=["\']p-table__content["\'][^>]*>(.*?)</[^>]+>',
-            html,
-            re.S | re.I,
-        )
-        if m_content:
-            content = self._strip_html(m_content.group(1)).strip()
+        content_elem = soup.select_one(".p-table__content")
+        if content_elem:
+            content = self._strip_html(str(content_elem)).strip()
 
         # attachments: <a class="p-attach__preview" href="...">
         preview_links: List[str] = []
-        for m in re.finditer(
-            r'<a[^>]*class=["\']p-attach__preview["\'][^>]*href=["\']([^"\']+)["\']',
-            html,
-            re.S | re.I,
-        ):
-            href = m.group(1)
-            preview_links.append(urljoin(base_url, href))
+        attach_links = soup.select("a.p-attach__preview[href]")
+        for link in attach_links:
+            href = link.get("href")
+            if href:
+                preview_links.append(urljoin(base_url, href))
 
         return ParsedDetail(title=title, content=content, preview_links=preview_links)
 
@@ -431,65 +442,55 @@ class KnueBoardIngestor:
     def _delete_old_items(self, board_idx: int, cutoff: datetime) -> int:
         """Delete points older than cutoff for a specific board.
 
-        Uses server-side filtering for source and board_idx, and compares
-        pubDate locally to be robust across Qdrant versions. Returns count
+        Uses server-side filtering for efficiency. Returns count
         of deleted points.
         """
-        from qdrant_client.models import FieldCondition, Filter, MatchValue
+        from qdrant_client.models import (
+            FieldCondition,
+            Filter,
+            MatchValue,
+            PointIdsList,
+            Range,
+        )
 
         name = self.config.qdrant_board_collection
-        ids: List[str] = []
+
+        scroll_filter = Filter(
+            must=[
+                FieldCondition(key="source", match=MatchValue(value="knue_board")),
+                FieldCondition(key="board_idx", match=MatchValue(value=board_idx)),
+                FieldCondition(key="pubDate", range=Range(lt=cutoff.isoformat())),
+            ]
+        )
+
+        # To get an accurate count, we scroll to find all matching point IDs first.
+        ids_to_delete: List[str] = []
         offset = None
         while True:
             points, offset = self.qdrant_client.scroll(
                 collection_name=name,
-                scroll_filter=Filter(
-                    must=[
-                        FieldCondition(
-                            key="source", match=MatchValue(value="knue_board")
-                        ),
-                        FieldCondition(
-                            key="board_idx", match=MatchValue(value=board_idx)
-                        ),
-                    ]
-                ),
-                limit=200,
-                with_payload=True,
+                scroll_filter=scroll_filter,
+                limit=1000,
+                with_payload=False,
                 with_vectors=False,
                 offset=offset,
             )
             if not points:
                 break
-            for p in points:
-                try:
-                    raw = p.payload.get("pubDate")  # type: ignore[assignment]
-                    if not isinstance(raw, str):
-                        continue
-                    # Support both ISO and RFC822
-                    dt = None
-                    try:
-                        iso = raw.replace("Z", "+00:00")
-                        dt = datetime.fromisoformat(iso)
-                    except Exception:
-                        try:
-                            dt = parsedate_to_datetime(raw)
-                        except Exception:
-                            dt = None
-                    if dt is None:
-                        continue
-                    if dt.tzinfo is None:
-                        dt = dt.replace(tzinfo=timezone.utc)
-                    if dt < cutoff:
-                        ids.append(p.id)
-                except Exception:
-                    continue
+
+            ids_to_delete.extend([str(p.id) for p in points])
+
             if offset is None:
                 break
 
-        if not ids:
+        if not ids_to_delete:
             return 0
-        self.qdrant_client.delete(collection_name=name, points_selector=ids)
-        return len(ids)
+
+        self.qdrant_client.delete(
+            collection_name=name,
+            points_selector=PointIdsList(points=ids_to_delete),
+        )
+        return len(ids_to_delete)
 
     def _has_points_for_board(self, board_idx: int) -> bool:
         """Return True if the collection already has any point for this board index."""
