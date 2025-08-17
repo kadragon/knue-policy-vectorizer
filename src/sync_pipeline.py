@@ -2094,6 +2094,13 @@ def board_reindex(board_idx: tuple[int, ...], drop_collection: Optional[bool]):
     if drop_collection is None:
         drop_collection = False if board_idx else True
 
+    # Safety confirmation for destructive default
+    if drop_collection and not board_idx:
+        click.confirm(
+            "⚠️  No specific boards provided. This will drop and reindex the ENTIRE collection. Continue?",
+            abort=True,
+        )
+
     click.echo(
         f"📚 Boards: {', '.join(str(i) for i in indices)} | Collection: {config.qdrant_board_collection}"
     )
