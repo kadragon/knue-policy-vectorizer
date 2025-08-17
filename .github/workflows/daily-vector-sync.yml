@@ -52,14 +52,14 @@ jobs:
         run: |
           uv run python -m src.sync_pipeline health
         env:
-          GIT_REPO_URL: https://github.com/KNUE-CS/KNUE-Policy-Hub.git
+          GIT_REPO_URL: https://github.com/kadragon/KNUE-Policy-Hub.git
           GIT_BRANCH: main
       
       - name: Run policy vector sync
         run: |
           uv run python -m src.sync_pipeline sync
         env:
-          GIT_REPO_URL: https://github.com/KNUE-CS/KNUE-Policy-Hub.git
+          GIT_REPO_URL: https://github.com/kadragon/KNUE-Policy-Hub.git
           GIT_BRANCH: main
       
       - name: Upload logs

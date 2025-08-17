@@ -255,7 +255,7 @@ cp .env.example .env
 
 ```env
 # Git 저장소 설정
-GIT_REPO_URL=https://github.com/KNUE-CS/KNUE-Policy-Hub.git
+GIT_REPO_URL=https://github.com/kadragon/KNUE-Policy-Hub.git
 GIT_BRANCH=main
 
 # 🔧 Provider 선택 (NEW)
@@ -1039,7 +1039,7 @@ lsof -i :6333
 
 ```bash
 # 저장소 접근 권한 확인
-curl -I https://github.com/KNUE-CS/KNUE-Policy-Hub.git
+curl -I https://github.com/kadragon/KNUE-Policy-Hub.git
 
 # SSH 키 설정 (Private 저장소인 경우)
 ssh -T git@github.com

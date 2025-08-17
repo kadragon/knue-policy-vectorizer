@@ -233,7 +233,7 @@ Key test files:
 
 ```bash
 # Git Repository
-GIT_REPO_URL=https://github.com/KNUE-CS/KNUE-Policy-Hub.git
+GIT_REPO_URL=https://github.com/kadragon/KNUE-Policy-Hub.git
 GIT_BRANCH=main
 
 # Service URLs
