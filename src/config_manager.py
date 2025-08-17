@@ -46,9 +46,11 @@ except Exception:  # pragma: no cover - fallback path when cryptography isn't in
 # Support both package and standalone imports
 try:
     from .config import Config
+    from .crypto_utils import CryptoUtils
     from .providers import EmbeddingProvider, VectorProvider
 except Exception:  # pragma: no cover - fallback when imported as a script
     from config import Config  # type: ignore
+    from crypto_utils import CryptoUtils  # type: ignore
     from providers import EmbeddingProvider, VectorProvider  # type: ignore
 
 logger = structlog.get_logger(__name__)
@@ -700,7 +702,7 @@ class ConfigurationManager:
     def _calculate_config_hash(self, config: Config) -> str:
         """Calculate hash of configuration for integrity checking"""
         config_str = json.dumps(config.to_dict(), sort_keys=True)
-        return hashlib.sha256(config_str.encode("utf-8")).hexdigest()
+        return CryptoUtils.calculate_data_integrity_hash(config_str)
 
     def cleanup_old_backups(self, keep_days: int = 30):
         """Clean up old backup files"""

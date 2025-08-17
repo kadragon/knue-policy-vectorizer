@@ -10,6 +10,12 @@ import frontmatter
 
 from logger import setup_logger
 
+# Support both package and standalone imports
+try:
+    from .crypto_utils import CryptoUtils
+except Exception:  # pragma: no cover - fallback when imported as a script
+    from crypto_utils import CryptoUtils  # type: ignore
+
 
 class MarkdownProcessor:
     """Processes markdown documents for vectorization."""
@@ -177,8 +183,8 @@ class MarkdownProcessor:
         Returns:
             Document ID (hex hash)
         """
-        # Use SHA-256 hash of file path for consistent ID
-        doc_id = hashlib.sha256(file_path.encode("utf-8")).hexdigest()
+        # Use SHA-256 hash of file path for consistent ID (data integrity)
+        doc_id = CryptoUtils.calculate_data_integrity_hash(file_path)
 
         self.logger.debug("Document ID calculated", file_path=file_path, doc_id=doc_id)
 
