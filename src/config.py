@@ -1,6 +1,7 @@
+import json
 import os
-from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional, Tuple
 
 from dotenv import load_dotenv
 
@@ -28,6 +29,9 @@ class Config:
     qdrant_collection: str = "knue-policy-idx"
     vector_size: int = 1024
 
+    # Qdrant collection for KNUE web boards
+    qdrant_board_collection: str = "www-board-data"
+
     # Qdrant Cloud settings
     qdrant_cloud_url: str = ""
     qdrant_api_key: str = ""
@@ -48,6 +52,29 @@ class Config:
     max_tokens: int = 8192  # Maximum tokens for embedding service (bge-m3 limit)
     chunk_threshold: int = 800  # Chunking threshold for better semantic search
     chunk_overlap: int = 200  # Overlap tokens between chunks for context continuity
+
+    # KNUE Board ingest settings
+    board_rss_template: str = "https://www.knue.ac.kr/rssBbsNtt.do?bbsNo={board_idx}"
+    board_indices: Tuple[int, ...] = (
+        25,
+        26,
+        11,
+        207,
+        28,
+        256,
+    )
+    board_chunk_size: int = 800
+    board_chunk_overlap: int = 200
+    board_max_age_days: int = 1  # Only ingest posts within this many days
+    # Retention: delete board items older than this many days (default 730 ~ 2 years)
+    board_retention_days: int = 730
+    # Board-specific title prefix skip map: {board_idx: ["[교육봉사]", ...]}
+    board_skip_prefix_map: Dict[int, Tuple[str, ...]] = field(default_factory=dict)
+    # Embedding batch size when processing board items
+    board_embed_batch_size: int = 32
+    # Adaptive batching + retry/backoff
+    board_embed_retry_max: int = 3
+    board_embed_backoff_base: float = 0.5
 
     # Logging settings
     log_level: str = "INFO"
@@ -166,6 +193,82 @@ class Config:
 
         log_level = os.getenv("LOG_LEVEL", cls.log_level)
 
+        # KNUE Board ingest settings
+        qdrant_board_collection = os.getenv(
+            "QDRANT_BOARD_COLLECTION", cls.qdrant_board_collection
+        )
+        board_rss_template = os.getenv("BOARD_RSS_TEMPLATE", cls.board_rss_template)
+        board_indices_raw = os.getenv("BOARD_INDICES")
+        if board_indices_raw:
+            try:
+                board_indices = tuple(
+                    int(x.strip()) for x in board_indices_raw.split(",") if x.strip()
+                )
+            except ValueError:
+                raise ValueError(
+                    "Invalid BOARD_INDICES. Expected comma-separated integers."
+                )
+        else:
+            board_indices = cls.board_indices
+
+        board_chunk_size = cls._get_env_int(
+            "BOARD_CHUNK_SIZE", default_value=cls.board_chunk_size
+        )
+        board_chunk_overlap = cls._get_env_int(
+            "BOARD_CHUNK_OVERLAP", default_value=cls.board_chunk_overlap
+        )
+        board_max_age_days = cls._get_env_int(
+            "BOARD_MAX_AGE_DAYS", default_value=cls.board_max_age_days
+        )
+        board_retention_days = cls._get_env_int(
+            "BOARD_RETENTION_DAYS", default_value=cls.board_retention_days
+        )
+        # Parse board skip prefix map from JSON env var
+        board_skip_prefix_map_env = os.getenv("BOARD_SKIP_PREFIX_MAP", "")
+        board_skip_prefix_map: Dict[int, Tuple[str, ...]] = {}
+        if board_skip_prefix_map_env:
+            try:
+                raw = json.loads(board_skip_prefix_map_env)
+                if not isinstance(raw, dict):
+                    raise ValueError("BOARD_SKIP_PREFIX_MAP must be a JSON object")
+                for k, v in raw.items():
+                    # Keys may be strings; coerce to int
+                    try:
+                        key_int = int(k)
+                    except Exception:
+                        raise ValueError(
+                            f"BOARD_SKIP_PREFIX_MAP has non-integer key: {k!r}"
+                        )
+                    if not isinstance(v, (list, tuple)) or not all(
+                        isinstance(s, str) for s in v
+                    ):
+                        raise ValueError(
+                            "BOARD_SKIP_PREFIX_MAP values must be lists of strings"
+                        )
+                    board_skip_prefix_map[key_int] = tuple(str(s) for s in v)
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid BOARD_SKIP_PREFIX_MAP JSON: {e.msg}") from e
+        board_embed_batch_size = cls._get_env_int(
+            "BOARD_EMBED_BATCH_SIZE", default_value=cls.board_embed_batch_size
+        )
+        board_embed_retry_max = cls._get_env_int(
+            "BOARD_EMBED_RETRY_MAX", default_value=cls.board_embed_retry_max
+        )
+
+        # Float env helper
+        def _get_env_float(key: str, default_value: float) -> float:
+            v = os.getenv(key)
+            if v is None:
+                return default_value
+            try:
+                return float(v)
+            except ValueError:
+                return default_value
+
+        board_embed_backoff_base = _get_env_float(
+            "BOARD_EMBED_BACKOFF_BASE", cls.board_embed_backoff_base
+        )
+
         return cls(
             repo_url=repo_url,
             branch=branch,
@@ -175,6 +278,7 @@ class Config:
             qdrant_url=qdrant_url,
             qdrant_collection=qdrant_collection,
             vector_size=vector_size,
+            qdrant_board_collection=qdrant_board_collection,
             qdrant_cloud_url=qdrant_cloud_url,
             qdrant_api_key=qdrant_api_key,
             qdrant_cluster_region=qdrant_cluster_region,
@@ -188,6 +292,16 @@ class Config:
             max_tokens=max_tokens,
             chunk_threshold=chunk_threshold,
             chunk_overlap=chunk_overlap,
+            board_rss_template=board_rss_template,
+            board_indices=board_indices,
+            board_chunk_size=board_chunk_size,
+            board_chunk_overlap=board_chunk_overlap,
+            board_max_age_days=board_max_age_days,
+            board_retention_days=board_retention_days,
+            board_skip_prefix_map=board_skip_prefix_map,
+            board_embed_batch_size=board_embed_batch_size,
+            board_embed_retry_max=board_embed_retry_max,
+            board_embed_backoff_base=board_embed_backoff_base,
             log_level=log_level,
         )
 
@@ -271,6 +385,13 @@ class Config:
             "max_tokens": self.max_tokens,
             "chunk_threshold": self.chunk_threshold,
             "chunk_overlap": self.chunk_overlap,
+            "board_retention_days": self.board_retention_days,
+            "board_skip_prefix_map": {
+                str(k): list(v) for k, v in self.board_skip_prefix_map.items()
+            },
+            "board_embed_batch_size": self.board_embed_batch_size,
+            "board_embed_retry_max": self.board_embed_retry_max,
+            "board_embed_backoff_base": self.board_embed_backoff_base,
             "log_level": self.log_level,
         }
 
