@@ -142,7 +142,7 @@ uv run python -m src.sync_pipeline sync
 
 ### CLI 명령어
 
-이 시스템은 세 가지 주요 명령어를 제공합니다:
+이 시스템은 다음과 같은 주요 명령어를 제공합니다:
 
 #### 1. 헬스체크
 
@@ -198,11 +198,27 @@ uv run python -m src.sync_pipeline board-sync
 
 # 특정 게시판만 지정해서 실행 (반복 지정 가능)
 uv run python -m src.sync_pipeline board-sync --board-idx 25 --board-idx 26
+
+# 게시판 전체 재인덱싱 (문제 발생 시)
+uv run python -m src.sync_pipeline board-reindex
+
+# 특정 게시판만 재인덱싱
+uv run python -m src.sync_pipeline board-reindex --board-idx 25
+
+# 컬렉션 삭제 후 재인덱싱 (완전 재구축)
+uv run python -m src.sync_pipeline board-reindex --drop-collection
 ```
 
-동작 방식:
-- 최초 실행: 해당 게시판(`board_idx`)에 기존 데이터가 없으면 RSS의 모든 항목을 1회 전체 색인합니다.
-- 이후 실행: `BOARD_MAX_AGE_DAYS` 내의 최신 글만 증분 색인합니다.
+**동작 방식**:
+
+- **board-sync**: 
+  - 최초 실행: 해당 게시판에 기존 데이터가 없으면 RSS의 모든 항목을 1회 전체 색인
+  - 이후 실행: `BOARD_MAX_AGE_DAYS` 내의 최신 글만 증분 색인
+
+- **board-reindex**:
+  - 특정 게시판만 선택적 재인덱싱 가능
+  - `--drop-collection`: 전체 게시판 컬렉션 삭제 후 재생성
+  - 보존 기간(`BOARD_RETENTION_DAYS`) 내의 모든 글을 전체 재처리
 
 환경 변수:
 - `BOARD_RSS_TEMPLATE` (기본: https://www.knue.ac.kr/rssBbsNtt.do?bbsNo={board_idx})
@@ -457,26 +473,49 @@ uv run python -m src.sync_pipeline --vector-provider qdrant_cloud sync
 
 ### 🔄 Provider 마이그레이션
 
+#### 🔒 마이그레이션 안전 기능 (NEW)
+
+마이그레이션은 **매우 신중하게** 수행해야 하는 작업입니다. 시스템에는 다음과 같은 안전장치가 내장되어 있습니다:
+
+**다중 확인 절차**:
+- 첫 번째 확인: "모든 벡터 데이터를 마이그레이션하시겠습니까?"
+- 두 번째 확인: 정확한 마이그레이션 경로 텍스트 입력 필요
+- 예: `ollama/qdrant_local-to-openai/qdrant_cloud` 정확히 타이핑
+
+**마이그레이션 보고서**:
+- 기본적으로 **보고서 생성 안함** (보안상 안전)
+- 필요시 `--save-report` 플래그로 명시적 활성화
+
 #### 마이그레이션 도구 사용
 
 ```bash
-# 호환성 확인
-uv run python -m src.sync_pipeline check-compatibility
+# 1. 호환성 먼저 확인 (DRY RUN 권장)
+uv run python -m src.sync_pipeline migrate \
+  --from-embedding ollama --from-vector qdrant_local \
+  --to-embedding openai --to-vector qdrant_cloud \
+  --dry-run
 
-# 백업 생성
+# 2. 백업 생성 (필수!)
 uv run python -m src.sync_pipeline backup backups/migration_backup.json
 
-# Provider 간 벡터 마이그레이션
+# 3. 실제 마이그레이션 (신중하게!)
 uv run python -m src.sync_pipeline migrate \
-  --source-embedding ollama --source-vector qdrant_local \
-  --target-embedding openai --target-vector qdrant_cloud
+  --from-embedding ollama --from-vector qdrant_local \
+  --to-embedding openai --to-vector qdrant_cloud \
+  --backup --save-report
 
-# 성능 비교
+# 4. 성능 비교
 uv run python -m src.sync_pipeline compare-performance
 
-# 백업에서 복구
+# 5. 백업에서 복구 (필요시)
 uv run python -m src.sync_pipeline restore backups/migration_backup.json
 ```
+
+⚠️ **마이그레이션 주의사항**:
+- 항상 `--dry-run`으로 먼저 테스트
+- 백업 없이는 절대 마이그레이션 금지
+- 정확한 확인 텍스트 입력 필요
+- 프로덕션에서는 반드시 점검 시간에 수행
 
 #### 단계별 마이그레이션 가이드
 
@@ -1157,6 +1196,16 @@ LOG_LEVEL=INFO uv run python -m src.sync_pipeline sync 2>&1 | grep "ERROR\|WARNI
 
 - Provider 변경 시 벡터 차원 불일치
 - 해결: 전체 재인덱싱 필요 (`reindex` 명령 실행)
+
+**"Migration cancelled - confirmation text did not match"** (NEW)
+
+- 마이그레이션 확인 텍스트 불일치 (보안 기능)
+- 해결: 정확한 마이그레이션 경로 텍스트 입력 (예: `ollama/qdrant_local-to-openai/qdrant_cloud`)
+
+**"Migration report not saved"** (NEW)
+
+- 마이그레이션 보고서가 기본적으로 생성되지 않음 (보안상 안전)
+- 해결: 필요시 `--save-report` 플래그 사용
 
 #### 로그 파일 위치
 
