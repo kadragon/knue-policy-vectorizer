@@ -15,6 +15,7 @@ try:
     from .config_manager import ConfigProfile, ConfigTemplate, ConfigurationManager
     from .embedding_service import EmbeddingService
     from .git_watcher import GitWatcher
+    from .knue_board_ingestor import KnueBoardIngestor
     from .logger import setup_logger
     from .markdown_processor import MarkdownProcessor
     from .migration_tools import MigrationManager, create_migration_config
@@ -35,6 +36,7 @@ except Exception:  # pragma: no cover - fallback when imported as a script
     )
     from embedding_service import EmbeddingService  # type: ignore
     from git_watcher import GitWatcher  # type: ignore
+    from knue_board_ingestor import KnueBoardIngestor  # type: ignore
     from logger import setup_logger  # type: ignore
     from markdown_processor import MarkdownProcessor  # type: ignore
     from migration_tools import (  # type: ignore
@@ -861,6 +863,11 @@ def test_providers(
     "--backup/--no-backup", default=True, help="Create backup before migration"
 )
 @click.option("--dry-run", is_flag=True, help="Check compatibility without migrating")
+@click.option(
+    "--save-report/--no-save-report",
+    default=False,
+    help="Save migration report to file (default: no)",
+)
 @click.option("--openai-api-key", help="OpenAI API key for migration")
 @click.option("--qdrant-cloud-url", help="Qdrant Cloud URL for migration")
 @click.option("--qdrant-api-key", help="Qdrant Cloud API key for migration")
@@ -872,11 +879,17 @@ def migrate_providers(
     batch_size: int,
     backup: bool,
     dry_run: bool,
+    save_report: bool,
     openai_api_key: Optional[str] = None,
     qdrant_cloud_url: Optional[str] = None,
     qdrant_api_key: Optional[str] = None,
 ):
-    """Migrate data between different provider configurations."""
+    """Migrate data between different provider configurations.
+
+    ⚠️  WARNING: This operation will transfer ALL vector data from source to target.
+    Use --dry-run first to check compatibility without migrating.
+    Always ensure you have backups before proceeding.
+    """
     click.echo("🔄 Provider Migration Tool\n")
 
     try:
@@ -951,15 +964,31 @@ def migrate_providers(
             click.echo("\n✅ Dry run completed - no data migrated")
             return
 
-        # Confirm migration
+        # Confirm migration with multiple safety checks
         click.echo(f"\n📋 Migration Plan:")
         click.echo(f"  From: {from_embedding}/{from_vector}")
         click.echo(f"  To: {to_embedding}/{to_vector}")
         click.echo(f"  Batch Size: {batch_size}")
         click.echo(f"  Backup: {'Yes' if backup else 'No'}")
 
-        if not click.confirm("\nProceed with migration?"):
+        # First confirmation
+        if not click.confirm(
+            "\n⚠️  This will migrate ALL your vector data. Are you sure?"
+        ):
             click.echo("❌ Migration cancelled")
+            return
+
+        # Second confirmation for safety
+        confirmation_text = (
+            f"{from_embedding}/{from_vector}-to-{to_embedding}/{to_vector}"
+        )
+        user_input = click.prompt(
+            f"\n🔒 For safety, please type '{confirmation_text}' to confirm migration",
+            type=str,
+        )
+
+        if user_input != confirmation_text:
+            click.echo("❌ Migration cancelled - confirmation text did not match")
             return
 
         # Perform migration
@@ -988,14 +1017,17 @@ def migrate_providers(
             if len(report.errors) > 5:
                 click.echo(f"  ... and {len(report.errors) - 5} more errors")
 
-        # Save migration report
-        import json
-        from datetime import datetime
+        # Save migration report only if requested
+        if save_report:
+            import json
+            from datetime import datetime
 
-        report_file = f"migration_report_{int(report.start_time.timestamp())}.json"
-        with open(report_file, "w") as f:
-            json.dump(report.to_dict(), f, indent=2)
-        click.echo(f"\n📄 Migration report saved to: {report_file}")
+            report_file = f"migration_report_{int(report.start_time.timestamp())}.json"
+            with open(report_file, "w") as f:
+                json.dump(report.to_dict(), f, indent=2)
+            click.echo(f"\n📄 Migration report saved to: {report_file}")
+        else:
+            click.echo(f"\n💬 Migration report not saved (use --save-report to save)")
 
         if report.success_rate >= 95:
             click.echo("\n🎉 Migration completed successfully!")
@@ -1980,6 +2012,120 @@ def health(
             click.echo(f"Vector: {config.vector_provider}")
     else:
         click.echo("❌ Some services are not healthy")
+
+
+@main.command(name="board-sync")
+@click.option(
+    "--board-idx",
+    multiple=True,
+    type=int,
+    help="Specific board indices to ingest (repeatable)",
+)
+def board_sync(board_idx: tuple[int, ...]):
+    """Ingest KNUE web board posts into Qdrant collection for boards."""
+    click.echo("📰 KNUE Board Sync\n")
+
+    config = Config.from_env()
+    try:
+        config.validate()
+    except ValueError as e:
+        click.echo(f"❌ Configuration error: {e}")
+        return
+
+    ingestor = KnueBoardIngestor(config)
+
+    indices = board_idx if board_idx else config.board_indices
+    click.echo(
+        f"📚 Boards: {', '.join(str(i) for i in indices)} | Collection: {config.qdrant_board_collection}"
+    )
+    model_name = (
+        config.openai_model
+        if str(config.embedding_provider) == "openai"
+        else config.embedding_model
+    )
+    click.echo(f"🔤 Embedding: {config.embedding_provider} ({model_name})")
+
+    try:
+        result = ingestor.ingest(indices)
+        click.echo("\n✅ Board sync completed")
+        click.echo(
+            f"  Processed: {result['processed']} | Deleted: {result['deleted']} | Upserted: {result['upserted']}"
+        )
+        if result["failed"]:
+            click.echo(f"  Failed: {len(result['failed'])}")
+            for link in result["failed"][:5]:
+                click.echo(f"   - {link}")
+    except Exception as e:
+        click.echo(f"❌ Board sync failed: {e}")
+
+
+@main.command(name="board-reindex")
+@click.option(
+    "--board-idx",
+    multiple=True,
+    type=int,
+    help="Specific board indices to reindex (repeatable)",
+)
+@click.option(
+    "--drop-collection/--no-drop-collection",
+    default=None,
+    help="Delete and recreate the entire board collection before reindexing",
+)
+def board_reindex(board_idx: tuple[int, ...], drop_collection: Optional[bool]):
+    """Reindex KNUE web board posts into the board collection.
+
+    If no board indices are provided and --drop-collection is not set, the command
+    will default to dropping and recreating the collection. If board indices are
+    provided and --drop-collection is not set, it will purge only those boards.
+    """
+    click.echo("📰 KNUE Board Reindex\n")
+
+    config = Config.from_env()
+    try:
+        config.validate()
+    except ValueError as e:
+        click.echo(f"❌ Configuration error: {e}")
+        return
+
+    ingestor = KnueBoardIngestor(config)
+
+    indices = board_idx if board_idx else config.board_indices
+    # Determine default for drop_collection if not explicitly set
+    if drop_collection is None:
+        drop_collection = False if board_idx else True
+
+    # Safety confirmation for destructive default
+    if drop_collection and not board_idx:
+        click.confirm(
+            "⚠️  No specific boards provided. This will drop and reindex the ENTIRE collection. Continue?",
+            abort=True,
+        )
+
+    click.echo(
+        f"📚 Boards: {', '.join(str(i) for i in indices)} | Collection: {config.qdrant_board_collection}"
+    )
+    model_name = (
+        config.openai_model
+        if str(config.embedding_provider) == "openai"
+        else config.embedding_model
+    )
+    click.echo(f"🔤 Embedding: {config.embedding_provider} ({model_name})")
+    click.echo(
+        f"🧹 Drop collection: {'yes' if drop_collection else 'no'} | Mode: full ingest"
+    )
+
+    try:
+        result = ingestor.reindex(indices, drop_collection=drop_collection)
+        click.echo("\n✅ Board reindex completed")
+        click.echo(
+            f"  Processed: {result['processed']} | Deleted: {result['deleted']} | Upserted: {result['upserted']}"
+        )
+        if result["failed"]:
+            click.echo(f"  Failed: {len(result['failed'])}")
+            for link in result["failed"][:5]:
+                click.echo(f"   - {link}")
+    except Exception as e:
+        click.echo(f"❌ Board reindex failed: {e}")
 
 
 if __name__ == "__main__":
