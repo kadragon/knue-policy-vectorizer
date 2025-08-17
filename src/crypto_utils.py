@@ -63,7 +63,8 @@ class CryptoUtils:
         if salt is None:
             salt = os.urandom(32)  # 256-bit salt
 
-        # PBKDF2 with 100,000 iterations (recommended minimum)
+        # PBKDF2 with 100,000 iterations (OWASP recommended minimum for 2023+)
+        # This is computationally expensive by design to resist brute-force attacks
         pwd_hash = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100000)
         return pwd_hash.hex(), salt
 
