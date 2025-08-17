@@ -48,12 +48,16 @@ jobs:
           uv sync
           uv pip install -e .
       
+      - name: Create logs directory
+        run: mkdir -p logs
+      
       - name: Health check
         run: |
           uv run python -m src.sync_pipeline health
         env:
           GIT_REPO_URL: https://github.com/kadragon/KNUE-Policy-Hub.git
           GIT_BRANCH: main
+          LOG_FILE: logs/policy-sync.log
       
       - name: Run policy vector sync
         run: |
@@ -61,6 +65,7 @@ jobs:
         env:
           GIT_REPO_URL: https://github.com/kadragon/KNUE-Policy-Hub.git
           GIT_BRANCH: main
+          LOG_FILE: logs/policy-sync.log
       
       - name: Upload logs
         if: always()
@@ -69,6 +74,7 @@ jobs:
           name: policy-sync-logs-${{ github.run_number }}
           path: logs/
           retention-days: 7
+          if-no-files-found: ignore
 
   board-vector-sync:
     name: Board Vector Sync
@@ -94,13 +100,20 @@ jobs:
           uv sync
           uv pip install -e .
       
+      - name: Create logs directory
+        run: mkdir -p logs
+      
       - name: Health check
         run: |
           uv run python -m src.sync_pipeline health
+        env:
+          LOG_FILE: logs/board-sync.log
       
       - name: Run board vector sync
         run: |
           uv run python -m src.sync_pipeline board-sync
+        env:
+          LOG_FILE: logs/board-sync.log
       
       - name: Upload logs
         if: always()
@@ -109,6 +122,7 @@ jobs:
           name: board-sync-logs-${{ github.run_number }}
           path: logs/
           retention-days: 7
+          if-no-files-found: ignore
 
   notify-completion:
     name: Notify Completion
