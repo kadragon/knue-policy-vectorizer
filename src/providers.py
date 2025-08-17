@@ -234,14 +234,11 @@ class ProviderFactory:
             from qdrant_service import QdrantService
 
         # Parse URL to get host and port
-        url = config["url"]
-        url_parts = url.replace("http://", "").replace("https://", "")
-        if ":" in url_parts:
-            host, port = url_parts.split(":")
-            port = int(port)
-        else:
-            host = url_parts
-            port = 6333
+        from urllib.parse import urlparse
+
+        parsed_url = urlparse(config["url"])
+        host = parsed_url.hostname
+        port = parsed_url.port or 6333
 
         return QdrantService(
             host=host,

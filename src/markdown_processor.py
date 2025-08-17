@@ -177,8 +177,8 @@ class MarkdownProcessor:
         Returns:
             Document ID (hex hash)
         """
-        # Use MD5 hash of file path for consistent ID
-        doc_id = hashlib.md5(file_path.encode("utf-8")).hexdigest()
+        # Use SHA-256 hash of file path for consistent ID
+        doc_id = hashlib.sha256(file_path.encode("utf-8")).hexdigest()
 
         self.logger.debug("Document ID calculated", file_path=file_path, doc_id=doc_id)
 

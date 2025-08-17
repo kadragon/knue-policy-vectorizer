@@ -421,8 +421,8 @@ def test_hashlib_available():
     """Test that hashlib is available for document ID generation."""
     import hashlib
 
-    test_hash = hashlib.md5(b"test").hexdigest()
-    assert len(test_hash) == 32  # MD5 hash length
+    test_hash = hashlib.sha256(b"test").hexdigest()
+    assert len(test_hash) == 64  # SHA-256 hash length
 
 
 def test_datetime_handling():

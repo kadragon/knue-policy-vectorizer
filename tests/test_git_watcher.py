@@ -384,7 +384,9 @@ def test_tempfile_operations():
 class TestGitWatcherDetails:
     """Additional tests for URL building, discovery rules, and sync behavior."""
 
-    def _make_watcher(self, tmp_path, repo_url="https://example.com/repo.git", branch="main"):
+    def _make_watcher(
+        self, tmp_path, repo_url="https://example.com/repo.git", branch="main"
+    ):
         from git_watcher import GitWatcher
 
         cache_dir = tmp_path / "cache"
@@ -452,7 +454,9 @@ class TestGitWatcherDetails:
             # After pull, HEAD should point to a new commit
             mock_commit.hexsha = "new_sha"
 
-        with patch.object(watcher, "pull_updates", side_effect=_pull_side_effect) as mock_pull:
+        with patch.object(
+            watcher, "pull_updates", side_effect=_pull_side_effect
+        ) as mock_pull:
             new_commit, has_changes = watcher.sync_repository()
 
         assert mock_pull.called is True

@@ -1,12 +1,13 @@
 import os
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 from dotenv import load_dotenv
+
 try:
-    from .providers import EmbeddingProvider, VectorProvider, ProviderConfig
+    from .providers import EmbeddingProvider, ProviderConfig, VectorProvider
 except ImportError:
-    from providers import EmbeddingProvider, VectorProvider, ProviderConfig
+    from providers import EmbeddingProvider, ProviderConfig, VectorProvider
 
 load_dotenv()
 
@@ -113,12 +114,12 @@ class Config:
                 vector_provider_str = "qdrant_cloud"
             else:
                 vector_provider_str = "qdrant_local"
-        
+
         try:
             embedding_provider = EmbeddingProvider(embedding_provider_str)
         except ValueError:
             raise ValueError(f"Invalid embedding provider: {embedding_provider_str}")
-        
+
         try:
             vector_provider = VectorProvider(vector_provider_str)
         except ValueError:
@@ -134,7 +135,9 @@ class Config:
         # Qdrant Cloud settings
         qdrant_cloud_url = os.getenv("QDRANT_CLOUD_URL", cls.qdrant_cloud_url)
         qdrant_api_key = os.getenv("QDRANT_API_KEY", cls.qdrant_api_key)
-        qdrant_cluster_region = os.getenv("QDRANT_CLUSTER_REGION", cls.qdrant_cluster_region)
+        qdrant_cluster_region = os.getenv(
+            "QDRANT_CLUSTER_REGION", cls.qdrant_cluster_region
+        )
 
         # Ollama settings
         ollama_url = os.getenv("OLLAMA_URL", cls.ollama_url)
@@ -192,7 +195,7 @@ class Config:
         """Get provider configuration for use with ProviderFactory"""
         return ProviderConfig(
             embedding_provider=self.embedding_provider,
-            vector_provider=self.vector_provider
+            vector_provider=self.vector_provider,
         )
 
     def get_embedding_service_config(self) -> Dict[str, Any]:
@@ -201,29 +204,26 @@ class Config:
             return {
                 "ollama_url": self.ollama_url,
                 "model": self.embedding_model,
-                "max_tokens": self.max_tokens
+                "max_tokens": self.max_tokens,
             }
         elif self.embedding_provider == EmbeddingProvider.OPENAI:
             return {
                 "api_key": self.openai_api_key,
                 "model": self.openai_model,
                 "base_url": self.openai_base_url,
-                "max_tokens": self.max_tokens
+                "max_tokens": self.max_tokens,
             }
         else:
-            raise ValueError(f"Unsupported embedding provider: {self.embedding_provider}")
+            raise ValueError(
+                f"Unsupported embedding provider: {self.embedding_provider}"
+            )
 
     def get_vector_service_config(self) -> Dict[str, Any]:
         """Get configuration dictionary for vector service"""
         if self.vector_provider == VectorProvider.QDRANT_LOCAL:
-            return {
-                "url": self.qdrant_url
-            }
+            return {"url": self.qdrant_url}
         elif self.vector_provider == VectorProvider.QDRANT_CLOUD:
-            return {
-                "url": self.qdrant_cloud_url,
-                "api_key": self.qdrant_api_key
-            }
+            return {"url": self.qdrant_cloud_url, "api_key": self.qdrant_api_key}
         else:
             raise ValueError(f"Unsupported vector provider: {self.vector_provider}")
 
@@ -232,14 +232,20 @@ class Config:
         # Validate embedding provider configuration
         if self.embedding_provider == EmbeddingProvider.OPENAI:
             if not self.openai_api_key or not self.openai_api_key.strip():
-                raise ValueError("OpenAI API key is required when using OpenAI embedding provider")
+                raise ValueError(
+                    "OpenAI API key is required when using OpenAI embedding provider"
+                )
 
         # Validate vector provider configuration
         if self.vector_provider == VectorProvider.QDRANT_CLOUD:
             if not self.qdrant_api_key or not self.qdrant_api_key.strip():
-                raise ValueError("Qdrant Cloud API key is required when using Qdrant Cloud provider")
+                raise ValueError(
+                    "Qdrant Cloud API key is required when using Qdrant Cloud provider"
+                )
             if not self.qdrant_cloud_url or not self.qdrant_cloud_url.strip():
-                raise ValueError("Qdrant Cloud URL is required when using Qdrant Cloud provider")
+                raise ValueError(
+                    "Qdrant Cloud URL is required when using Qdrant Cloud provider"
+                )
 
     def to_dict(self) -> Dict[str, Any]:
         """Export configuration as dictionary"""
@@ -273,8 +279,12 @@ class Config:
         """Create configuration from dictionary"""
         # Convert string providers back to enums
         if "embedding_provider" in config_dict:
-            config_dict["embedding_provider"] = EmbeddingProvider(config_dict["embedding_provider"])
+            config_dict["embedding_provider"] = EmbeddingProvider(
+                config_dict["embedding_provider"]
+            )
         if "vector_provider" in config_dict:
-            config_dict["vector_provider"] = VectorProvider(config_dict["vector_provider"])
-        
+            config_dict["vector_provider"] = VectorProvider(
+                config_dict["vector_provider"]
+            )
+
         return cls(**config_dict)

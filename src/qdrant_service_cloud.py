@@ -114,7 +114,13 @@ class QdrantCloudService(VectorServiceInterface):
 
         # Qdrant Cloud requires HTTPS for security
         if parsed_url.scheme != "https":
-            if "qdrant.tech" in parsed_url.netloc or "qdrant.io" in parsed_url.netloc:
+            hostname = parsed_url.hostname
+            if hostname and (
+                hostname.endswith(".qdrant.tech")
+                or hostname == "qdrant.tech"
+                or hostname.endswith(".qdrant.io")
+                or hostname == "qdrant.io"
+            ):
                 raise ValueError("Qdrant Cloud requires HTTPS URLs")
             else:
                 # Allow HTTP for custom cloud deployments but warn
@@ -500,13 +506,14 @@ class QdrantCloudService(VectorServiceInterface):
                 collection_name=self.collection_name, points_selector=point_ids
             )
             # result may not carry UpdateStatus in HTTP mode; consider success if no exception
-            try:
-                return (
-                    getattr(result, "status", UpdateStatus.COMPLETED)
-                    == UpdateStatus.COMPLETED
-                )
-            except Exception:
-                return True
+            if hasattr(result, "status"):
+                return result.status == UpdateStatus.COMPLETED
+
+            self.logger.debug(
+                "Delete operation result did not have a status attribute, assuming success.",
+                result=result,
+            )
+            return True
         except UnexpectedResponse as e:
             if e.status_code == 401:
                 raise QdrantCloudAuthenticationError(
