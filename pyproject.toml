@@ -33,6 +33,7 @@ dependencies = [
     "qdrant-client>=1.15.1",
     "structlog>=25.4.0",
     "tiktoken>=0.11.0",
+    "openai>=1.99.9",
 ]
 
 [tool.pytest.ini_options]
@@ -94,4 +95,5 @@ dev = [
     "black>=24.0.0",
     "isort>=5.12.0",
     "mypy>=1.8.0",
+    "pre-commit>=4.3.0",
 ]

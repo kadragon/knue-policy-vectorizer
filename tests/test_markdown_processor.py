@@ -417,12 +417,12 @@ def test_frontmatter_library_available():
     assert hasattr(frontmatter, "loads")
 
 
-def test_hashlib_available():
-    """Test that hashlib is available for document ID generation."""
-    import hashlib
+def test_crypto_utils_available():
+    """Test that CryptoUtils works correctly for document ID generation."""
+    from src.crypto_utils import CryptoUtils
 
-    test_hash = hashlib.md5(b"test").hexdigest()
-    assert len(test_hash) == 32  # MD5 hash length
+    test_hash = CryptoUtils.calculate_data_integrity_hash("test")
+    assert len(test_hash) == 64  # SHA-256 hash length
 
 
 def test_datetime_handling():

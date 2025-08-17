@@ -1,0 +1,15 @@
+{
+  "source_provider": "ollama/qdrant_local",
+  "target_provider": "openai/qdrant_cloud",
+  "start_time": "2025-08-17T11:54:13.546668",
+  "end_time": null,
+  "total_documents": 0,
+  "migrated_documents": 0,
+  "failed_documents": 0,
+  "success_rate": 0.0,
+  "duration": 0.0,
+  "errors": [
+    "Backup failed: QdrantService.search_points() got multiple values for argument 'limit'"
+  ],
+  "performance_metrics": {}
+}
