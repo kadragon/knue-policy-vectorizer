@@ -108,6 +108,21 @@ class Config:
         return value if value is not None else default_value
 
     @classmethod
+    def _get_env_float(
+        cls,
+        key: str,
+        default_value: float,
+    ) -> float:
+        """Helper method to get float values from environment variables."""
+        v = os.getenv(key)
+        if v is None:
+            return default_value
+        try:
+            return float(v)
+        except ValueError:
+            return default_value
+
+    @classmethod
     def from_env(cls) -> "Config":
         # Prefer canonical keys but support legacy aliases used in README/.env.example
         repo_url = cls._get_env_str("GIT_REPO_URL", "REPO_URL", cls.repo_url)
@@ -254,18 +269,7 @@ class Config:
         board_embed_retry_max = cls._get_env_int(
             "BOARD_EMBED_RETRY_MAX", default_value=cls.board_embed_retry_max
         )
-
-        # Float env helper
-        def _get_env_float(key: str, default_value: float) -> float:
-            v = os.getenv(key)
-            if v is None:
-                return default_value
-            try:
-                return float(v)
-            except ValueError:
-                return default_value
-
-        board_embed_backoff_base = _get_env_float(
+        board_embed_backoff_base = cls._get_env_float(
             "BOARD_EMBED_BACKOFF_BASE", cls.board_embed_backoff_base
         )
 
