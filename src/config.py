@@ -26,7 +26,7 @@ class Config:
 
     # Qdrant settings (local)
     qdrant_url: str = "http://localhost:6333"
-    qdrant_collection: str = "knue-policy-idx"
+    qdrant_collection: str = "knue_policies"
     vector_size: int = 1024
 
     # Qdrant collection for KNUE web boards
@@ -43,7 +43,7 @@ class Config:
 
     # OpenAI settings
     openai_api_key: str = ""
-    openai_model: str = "text-embedding-3-small"
+    openai_model: str = "text-embedding-3-large"
     openai_base_url: str = "https://api.openai.com/v1"
 
     # Processing settings

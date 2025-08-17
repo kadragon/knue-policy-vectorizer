@@ -31,7 +31,7 @@ class TestSyncPipelineInit:
             == "https://github.com/kadragon/KNUE-Policy-Hub.git"
         )
         assert pipeline.config.branch == "main"
-        assert pipeline.config.qdrant_collection == "knue-policy-idx"
+        assert pipeline.config.qdrant_collection == "knue_policies"
 
     def test_init_with_custom_config(self):
         """Test initialization with custom configuration."""

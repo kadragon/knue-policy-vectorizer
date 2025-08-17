@@ -1,0 +1,124 @@
+name: Daily Vector Sync
+
+on:
+  schedule:
+    # 매일 07:00 KST (22:00 UTC 전날)
+    - cron: '0 22 * * *'
+  workflow_dispatch:  # 수동 실행 가능
+
+env:
+  # OpenAI 설정
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  
+  # Qdrant Cloud 설정
+  QDRANT_CLOUD_URL: ${{ secrets.QDRANT_CLOUD_URL }}
+  QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+  
+  # 처리 설정
+  MAX_TOKEN_LENGTH: 8192
+  MAX_DOCUMENT_CHARS: 30000
+  BATCH_SIZE: 10
+  MAX_WORKERS: 4
+  LOG_LEVEL: INFO
+  
+  # KNUE Board 설정
+  BOARD_INDICES: "25,26,11,207,28,256"
+
+jobs:
+  policy-vector-sync:
+    name: Policy Vector Sync
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+      
+      - name: Install dependencies
+        run: |
+          uv sync
+          uv pip install -e .
+      
+      - name: Health check
+        run: |
+          uv run python -m src.sync_pipeline health
+        env:
+          GIT_REPO_URL: https://github.com/KNUE-CS/KNUE-Policy-Hub.git
+          GIT_BRANCH: main
+      
+      - name: Run policy vector sync
+        run: |
+          uv run python -m src.sync_pipeline sync
+        env:
+          GIT_REPO_URL: https://github.com/KNUE-CS/KNUE-Policy-Hub.git
+          GIT_BRANCH: main
+      
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: policy-sync-logs-${{ github.run_number }}
+          path: logs/
+          retention-days: 7
+
+  board-vector-sync:
+    name: Board Vector Sync
+    runs-on: ubuntu-latest
+    needs: policy-vector-sync  # policy sync 완료 후 실행
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+      
+      - name: Install dependencies
+        run: |
+          uv sync
+          uv pip install -e .
+      
+      - name: Health check
+        run: |
+          uv run python -m src.sync_pipeline health
+      
+      - name: Run board vector sync
+        run: |
+          uv run python -m src.sync_pipeline board-sync
+      
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: board-sync-logs-${{ github.run_number }}
+          path: logs/
+          retention-days: 7
+
+  notify-completion:
+    name: Notify Completion
+    runs-on: ubuntu-latest
+    needs: [policy-vector-sync, board-vector-sync]
+    if: always()
+    
+    steps:
+      - name: Send completion notification
+        run: |
+          echo "Daily vector sync completed at $(date)"
+          echo "Policy sync status: ${{ needs.policy-vector-sync.result }}"
+          echo "Board sync status: ${{ needs.board-vector-sync.result }}"

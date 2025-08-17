@@ -413,10 +413,8 @@ class KnueBoardIngestor:
             "link": PayloadSchemaType.KEYWORD,
             "source": PayloadSchemaType.KEYWORD,
             "board_idx": PayloadSchemaType.INTEGER,
-            # Store pubDate as ISO string but index as DATETIME for range filters
-            "pubDate": getattr(
-                PayloadSchemaType, "DATETIME", PayloadSchemaType.KEYWORD
-            ),
+            # Store pubDate as timestamp but index as FLOAT for range filters
+            "pubDate": PayloadSchemaType.FLOAT,
         }
         for field, schema in indexes.items():
             try:
@@ -430,14 +428,42 @@ class KnueBoardIngestor:
                     schema=str(schema),
                 )
             except Exception as e:
-                # Likely already exists; log at debug level
-                self.logger.debug(
-                    "Payload index ensure",
-                    collection=name,
-                    field=field,
-                    status="exists_or_failed",
-                    error=str(e),
-                )
+                # If pubDate index creation fails, try to recreate it
+                if field == "pubDate":
+                    self.logger.info(
+                        "Recreating pubDate index for FLOAT compatibility",
+                        collection=name,
+                        field=field,
+                    )
+                    try:
+                        # Try to delete existing index first
+                        self.qdrant_client.delete_payload_index(
+                            collection_name=name, field_name=field
+                        )
+                    except Exception:
+                        pass  # Index might not exist
+
+                    # Create new index with FLOAT type
+                    self.qdrant_client.create_payload_index(
+                        collection_name=name,
+                        field_name=field,
+                        field_schema=PayloadSchemaType.FLOAT,
+                    )
+                    self.logger.info(
+                        "Recreated payload index",
+                        collection=name,
+                        field=field,
+                        schema="FLOAT",
+                    )
+                else:
+                    # Likely already exists; log at debug level
+                    self.logger.debug(
+                        "Payload index ensure",
+                        collection=name,
+                        field=field,
+                        status="exists_or_failed",
+                        error=str(e),
+                    )
 
     def _delete_old_items(self, board_idx: int, cutoff: datetime) -> int:
         """Delete points older than cutoff for a specific board.
@@ -455,26 +481,103 @@ class KnueBoardIngestor:
 
         name = self.config.qdrant_board_collection
 
-        scroll_filter = Filter(
-            must=[
-                FieldCondition(key="source", match=MatchValue(value="knue_board")),
-                FieldCondition(key="board_idx", match=MatchValue(value=board_idx)),
-                FieldCondition(key="pubDate", range=Range(lt=cutoff.isoformat())),
-            ]
-        )
+        try:
+            scroll_filter = Filter(
+                must=[
+                    FieldCondition(key="source", match=MatchValue(value="knue_board")),
+                    FieldCondition(key="board_idx", match=MatchValue(value=board_idx)),
+                    FieldCondition(key="pubDate", range=Range(lt=cutoff.timestamp())),
+                ]
+            )
+        except Exception as e:
+            if "Index required but not found" in str(e):
+                self.logger.info(
+                    "Recreating pubDate index for range queries",
+                    board_idx=board_idx,
+                    collection=name,
+                )
+                try:
+                    # Delete existing index
+                    self.qdrant_client.delete_payload_index(
+                        collection_name=name, field_name="pubDate"
+                    )
+                except Exception:
+                    pass
+
+                # Create new FLOAT index
+                from qdrant_client.models import PayloadSchemaType
+
+                self.qdrant_client.create_payload_index(
+                    collection_name=name,
+                    field_name="pubDate",
+                    field_schema=PayloadSchemaType.FLOAT,
+                )
+
+                # Retry filter creation
+                scroll_filter = Filter(
+                    must=[
+                        FieldCondition(
+                            key="source", match=MatchValue(value="knue_board")
+                        ),
+                        FieldCondition(
+                            key="board_idx", match=MatchValue(value=board_idx)
+                        ),
+                        FieldCondition(
+                            key="pubDate", range=Range(lt=cutoff.timestamp())
+                        ),
+                    ]
+                )
+            else:
+                raise
 
         # To get an accurate count, we scroll to find all matching point IDs first.
         ids_to_delete: List[str] = []
         offset = None
         while True:
-            points, offset = self.qdrant_client.scroll(
-                collection_name=name,
-                scroll_filter=scroll_filter,
-                limit=1000,
-                with_payload=False,
-                with_vectors=False,
-                offset=offset,
-            )
+            try:
+                points, offset = self.qdrant_client.scroll(
+                    collection_name=name,
+                    scroll_filter=scroll_filter,
+                    limit=1000,
+                    with_payload=False,
+                    with_vectors=False,
+                    offset=offset,
+                )
+            except Exception as e:
+                if "Index required but not found" in str(e):
+                    self.logger.info(
+                        "Recreating pubDate index for range queries during scroll",
+                        board_idx=board_idx,
+                        collection=name,
+                    )
+                    try:
+                        # Delete existing index
+                        self.qdrant_client.delete_payload_index(
+                            collection_name=name, field_name="pubDate"
+                        )
+                    except Exception:
+                        pass
+
+                    # Create new FLOAT index
+                    from qdrant_client.models import PayloadSchemaType
+
+                    self.qdrant_client.create_payload_index(
+                        collection_name=name,
+                        field_name="pubDate",
+                        field_schema=PayloadSchemaType.FLOAT,
+                    )
+
+                    # Retry scroll
+                    points, offset = self.qdrant_client.scroll(
+                        collection_name=name,
+                        scroll_filter=scroll_filter,
+                        limit=1000,
+                        with_payload=False,
+                        with_vectors=False,
+                        offset=offset,
+                    )
+                else:
+                    raise
             if not points:
                 break
 
@@ -593,22 +696,24 @@ class KnueBoardIngestor:
             self.logger.info("Parsed RSS items", board_idx=board_idx, items=len(items))
 
             # Purge items older than configured retention for this board
-            retention_days = getattr(self.config, "board_retention_days", 730)
-            cutoff_dt = now - timedelta(days=retention_days)
-            try:
-                deleted_old = self._delete_old_items(board_idx, cutoff_dt)
-                if deleted_old:
-                    self.logger.info(
-                        "Deleted old items",
-                        board_idx=board_idx,
-                        older_than_days=retention_days,
-                        deleted=deleted_old,
+            # Only attempt deletion if there are existing points for this board
+            if self._has_points_for_board(board_idx):
+                retention_days = getattr(self.config, "board_retention_days", 730)
+                cutoff_dt = now - timedelta(days=retention_days)
+                try:
+                    deleted_old = self._delete_old_items(board_idx, cutoff_dt)
+                    if deleted_old:
+                        self.logger.info(
+                            "Deleted old items",
+                            board_idx=board_idx,
+                            older_than_days=retention_days,
+                            deleted=deleted_old,
+                        )
+                    total_deleted += deleted_old
+                except Exception as e:
+                    self.logger.warning(
+                        "Failed to delete old items", board_idx=board_idx, error=str(e)
                     )
-                total_deleted += deleted_old
-            except Exception as e:
-                self.logger.warning(
-                    "Failed to delete old items", board_idx=board_idx, error=str(e)
-                )
             # Determine indexing mode and filter
             first_run = not self._has_points_for_board(board_idx)
             if min_pubdate is not None:
@@ -743,7 +848,7 @@ class KnueBoardIngestor:
                             "title": title,
                             "content": chunk,
                             "link": item.link,
-                            "pubDate": item.pub_date.isoformat(),
+                            "pubDate": item.pub_date.timestamp(),
                             "preview_link": detail.preview_links,
                             "board_idx": board_idx,
                             "chunk_index": idx,
