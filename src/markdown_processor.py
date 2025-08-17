@@ -2,11 +2,14 @@
 
 import hashlib
 import re
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import frontmatter
+import requests
+from bs4 import BeautifulSoup
 
 from logger import setup_logger
 
@@ -43,6 +46,11 @@ class MarkdownProcessor:
         self.max_tokens = config.max_tokens
         self.chunk_threshold = config.chunk_threshold
         self.chunk_overlap = config.chunk_overlap
+
+        # Policy mapping cache
+        self._policy_mapping_cache = None
+        self._cache_timestamp = None
+        self._cache_duration = 3600  # Cache for 1 hour
 
     def remove_frontmatter(self, content: str) -> str:
         """Remove YAML or TOML frontmatter from markdown content.
@@ -285,6 +293,238 @@ class MarkdownProcessor:
 
         return True, None
 
+    def _fetch_policy_mapping_from_web(self) -> Dict[str, int]:
+        """Fetch current policy mapping from KNUE website.
+
+        Returns:
+            Dictionary mapping policy titles to fileNo values
+        """
+        try:
+            self.logger.info("Fetching policy mapping from KNUE website")
+
+            # Request the KNUE policies page
+            url = "https://www.knue.ac.kr/www/contents.do?key=392"
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            }
+
+            response = requests.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+
+            # Parse HTML content
+            soup = BeautifulSoup(response.content, "html.parser")
+
+            policy_mapping = {}
+
+            # Find all preview links with fileNo parameters
+            preview_links = soup.find_all(
+                "a",
+                href=lambda x: x and "previewMenuCntFile.do" in x and "fileNo=" in x,
+            )
+
+            for link in preview_links:
+                try:
+                    # Extract fileNo from href
+                    href = link.get("href", "")
+                    if "fileNo=" in href:
+                        file_no_match = re.search(r"fileNo=(\d+)", href)
+                        if file_no_match:
+                            file_no = int(file_no_match.group(1))
+
+                            # Get the policy title (usually the text content of the link or nearby element)
+                            title = link.get_text(strip=True)
+
+                            # If the link text is "미리보기", look for the title in parent or sibling elements
+                            if title == "미리보기" or not title:
+                                # Try to find title in parent row or nearby elements
+                                parent = (
+                                    link.find_parent("tr")
+                                    or link.find_parent("td")
+                                    or link.find_parent("li")
+                                )
+                                if parent:
+                                    # Look for text content that's not "미리보기" or "다운로드"
+                                    all_text = parent.get_text(
+                                        separator=" ", strip=True
+                                    )
+                                    # Remove common non-title text
+                                    title = re.sub(
+                                        r"(미리보기|다운로드)", "", all_text
+                                    ).strip()
+                                    # Clean up extra whitespace
+                                    title = re.sub(r"\s+", " ", title)
+
+                            if title and title not in ["미리보기", "다운로드", ""]:
+                                policy_mapping[title] = file_no
+                                self.logger.debug(
+                                    "Found policy mapping", title=title, file_no=file_no
+                                )
+
+                except Exception as e:
+                    self.logger.warning(
+                        "Failed to parse policy link",
+                        error=str(e),
+                        link_href=link.get("href", ""),
+                    )
+                    continue
+
+            if policy_mapping:
+                # Create unique mappings to avoid duplicates
+                unique_by_file_no = {}
+                alternative_mappings = {}
+
+                # First pass: collect unique policies by fileNo (prefer full titles)
+                for title, file_no in policy_mapping.items():
+                    if file_no not in unique_by_file_no:
+                        unique_by_file_no[file_no] = title
+                    elif len(title) > len(unique_by_file_no[file_no]):
+                        # Prefer longer, more complete titles
+                        unique_by_file_no[file_no] = title
+
+                # Second pass: create alternative mappings for better matching
+                for file_no, title in unique_by_file_no.items():
+                    # Add simplified versions
+                    if "한국교원대학교" in title:
+                        simplified = title.replace("한국교원대학교 ", "")
+                        if (
+                            simplified != title
+                            and simplified not in unique_by_file_no.values()
+                        ):
+                            alternative_mappings[simplified] = file_no
+
+                    # Add keyword-based mappings for common searches
+                    if (
+                        "학칙" in title
+                        and "대학원" not in title
+                        and "교육대학원" not in title
+                    ):
+                        if "학칙" not in alternative_mappings:
+                            alternative_mappings["학칙"] = file_no
+
+                # Combine unique policies with alternative mappings
+                final_mapping = {
+                    title: file_no for file_no, title in unique_by_file_no.items()
+                }
+                final_mapping.update(alternative_mappings)
+
+                self.logger.info(
+                    "Successfully fetched policy mapping",
+                    unique_policies=len(unique_by_file_no),
+                    total_mappings=len(final_mapping),
+                )
+
+                return final_mapping
+            else:
+                self.logger.warning("No policy mappings found on website")
+                return {}
+
+        except Exception as e:
+            self.logger.error(
+                "Failed to fetch policy mapping from website", error=str(e)
+            )
+            return {}
+
+    def _get_cached_policy_mapping(self) -> Dict[str, int]:
+        """Get policy mapping with caching mechanism and fallback.
+
+        Returns:
+            Dictionary mapping policy titles to fileNo values
+        """
+        current_time = time.time()
+
+        # Check if cache is valid
+        if (
+            self._policy_mapping_cache is not None
+            and self._cache_timestamp is not None
+            and current_time - self._cache_timestamp < self._cache_duration
+        ):
+            self.logger.debug("Using cached policy mapping")
+            return self._policy_mapping_cache
+
+        # Fetch fresh data
+        self.logger.debug("Cache expired or empty, fetching fresh policy mapping")
+        fresh_mapping = self._fetch_policy_mapping_from_web()
+
+        if fresh_mapping:
+            # Update cache
+            self._policy_mapping_cache = fresh_mapping
+            self._cache_timestamp = current_time
+            self.logger.info(
+                "Policy mapping cache updated", total_policies=len(fresh_mapping)
+            )
+            return fresh_mapping
+        else:
+            # If fetch failed and we have old cache, use it
+            if self._policy_mapping_cache is not None:
+                self.logger.warning("Failed to fetch fresh mapping, using stale cache")
+                return self._policy_mapping_cache
+            else:
+                # No cache and fetch failed, fail the operation
+                self.logger.error(
+                    "Failed to fetch policy mapping and no cache available"
+                )
+                raise RuntimeError(
+                    "Policy mapping fetch failed and no cached data available"
+                )
+
+    def get_policy_preview_url(self, title: str, filename: str) -> Optional[str]:
+        """Generate KNUE policy preview URL based on title or filename.
+
+        Args:
+            title: Document title (extracted from H1 or filename)
+            filename: Original filename
+
+        Returns:
+            KNUE policy preview URL if mapping found, None otherwise
+        """
+        # Get current policy mapping from website (with caching)
+        policy_mapping = self._get_cached_policy_mapping()
+
+        if not policy_mapping:
+            self.logger.warning(
+                "No policy mapping available", title=title, filename=filename
+            )
+            return None
+
+        # Try exact title match first
+        if title in policy_mapping:
+            file_no = policy_mapping[title]
+            preview_url = f"https://www.knue.ac.kr/www/previewMenuCntFile.do?key=392&fileNo={file_no}"
+            self.logger.debug(
+                "Policy preview URL found by title", title=title, file_no=file_no
+            )
+            return preview_url
+
+        # Try partial title matching
+        for policy_title, file_no in policy_mapping.items():
+            if policy_title in title or title in policy_title:
+                preview_url = f"https://www.knue.ac.kr/www/previewMenuCntFile.do?key=392&fileNo={file_no}"
+                self.logger.debug(
+                    "Policy preview URL found by partial match",
+                    title=title,
+                    matched_policy=policy_title,
+                    file_no=file_no,
+                )
+                return preview_url
+
+        # Try filename-based matching (remove extension and common prefixes)
+        clean_filename = Path(filename).stem
+        for policy_title, file_no in policy_mapping.items():
+            if policy_title in clean_filename or clean_filename in policy_title:
+                preview_url = f"https://www.knue.ac.kr/www/previewMenuCntFile.do?key=392&fileNo={file_no}"
+                self.logger.debug(
+                    "Policy preview URL found by filename",
+                    filename=clean_filename,
+                    matched_policy=policy_title,
+                    file_no=file_no,
+                )
+                return preview_url
+
+        self.logger.debug(
+            "No policy preview URL mapping found", title=title, filename=filename
+        )
+        return None
+
     def generate_metadata(
         self,
         content: str,
@@ -316,6 +556,9 @@ class MarkdownProcessor:
         content_length = len(content)
         estimated_tokens = self.estimate_token_count(content)
 
+        # Get KNUE policy preview URL if available
+        policy_preview_url = self.get_policy_preview_url(title, filename)
+
         metadata = {
             "document_id": doc_id,
             "title": title,  # Use the actual Korean title
@@ -323,6 +566,7 @@ class MarkdownProcessor:
             "last_modified": upload_time,
             "commit_hash": commit_info.get("sha", ""),
             "github_url": github_url,
+            "preview_url": policy_preview_url,  # KNUE official preview link
             "content_length": content_length,
             "estimated_tokens": estimated_tokens,
             "content": content,  # Add the actual content
@@ -349,7 +593,8 @@ class MarkdownProcessor:
         section_title = chunk["section_title"]
 
         # Use a conservative target to ensure we stay under limits
-        target_tokens = min(self.max_tokens - 100, 7000)  # Leave buffer for safety
+        # Leave buffer for safety
+        target_tokens = min(self.max_tokens - 100, 7000)
 
         # Split content into sentences/paragraphs for better splitting points
         lines = content.split("\n")
@@ -625,7 +870,8 @@ class MarkdownProcessor:
                 stripped = line.strip()
                 if not stripped:  # Empty line - good break point
                     last_good_break = line_idx + 1
-                elif stripped.startswith("#"):  # Header - good break point after
+                # Header - good break point after
+                elif stripped.startswith("#"):
                     last_good_break = line_idx + 1
                 elif any(
                     stripped.startswith(marker) for marker in ["---", "***", "___"]
