@@ -57,7 +57,9 @@ jobs:
       - name: Cache uv dependencies
         uses: actions/cache@v4
         with:
-          path: ~/.cache/uv
+          path: |
+            ~/.cache/uv
+            ~/.local/share/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/uv.lock') }}
           restore-keys: |
             ${{ runner.os }}-uv-
@@ -121,7 +123,9 @@ jobs:
       - name: Cache uv dependencies
         uses: actions/cache@v4
         with:
-          path: ~/.cache/uv
+          path: |
+            ~/.cache/uv
+            ~/.local/share/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/uv.lock') }}
           restore-keys: |
             ${{ runner.os }}-uv-
