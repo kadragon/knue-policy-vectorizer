@@ -3,8 +3,8 @@ name: Daily Vector Sync
 on:
   schedule:
     # 매일 07:00 KST (22:00 UTC 전날)
-    - cron: '0 22 * * *'
-  workflow_dispatch:  # 수동 실행 가능
+    - cron: "0 22 * * *"
+  workflow_dispatch: # 수동 실행 가능
 
 # 동시 실행 방지
 concurrency:
@@ -18,18 +18,18 @@ permissions:
 env:
   # OpenAI 설정
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-  
+
   # Qdrant Cloud 설정
   QDRANT_CLOUD_URL: ${{ secrets.QDRANT_CLOUD_URL }}
   QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
-  
+
   # 처리 설정
   MAX_TOKEN_LENGTH: 8192
   MAX_DOCUMENT_CHARS: 30000
   BATCH_SIZE: 10
   MAX_WORKERS: 4
   LOG_LEVEL: INFO
-  
+
   # KNUE Board 설정
   BOARD_INDICES: "25,26,11,207,28,256"
 
@@ -37,23 +37,28 @@ jobs:
   policy-vector-sync:
     name: Policy Vector Sync
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      
+          python-version: "3.11"
+
       - name: Install uv
         uses: astral-sh/setup-uv@v4
         with:
           version: "latest"
-      
+
+      - name: Prepare uv cache directories
+        run: |
+          mkdir -p ~/.cache/uv
+          mkdir -p ~/.local/share/uv
+
       - name: Cache uv dependencies
         uses: actions/cache@v4
         with:
@@ -63,15 +68,15 @@ jobs:
           key: ${{ runner.os }}-uv-${{ hashFiles('**/uv.lock') }}
           restore-keys: |
             ${{ runner.os }}-uv-
-      
+
       - name: Install dependencies
         run: |
-          uv sync
+          uv sync --no-dev
           uv pip install -e .
-      
+
       - name: Create logs directory
         run: mkdir -p logs
-      
+
       - name: Health check
         run: |
           uv run python -m src.sync_pipeline health
@@ -80,7 +85,7 @@ jobs:
           GIT_REPO_URL: https://github.com/kadragon/KNUE-Policy-Hub.git
           GIT_BRANCH: main
           LOG_FILE: logs/policy-sync.log
-      
+
       - name: Run policy vector sync
         run: |
           uv run python -m src.sync_pipeline sync
@@ -89,7 +94,7 @@ jobs:
           GIT_REPO_URL: https://github.com/kadragon/KNUE-Policy-Hub.git
           GIT_BRANCH: main
           LOG_FILE: logs/policy-sync.log
-      
+
       - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -102,24 +107,29 @@ jobs:
   board-vector-sync:
     name: Board Vector Sync
     runs-on: ubuntu-latest
-    needs: policy-vector-sync  # policy sync 완료 후 실행
-    
+    needs: policy-vector-sync # policy sync 완료 후 실행
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      
+          python-version: "3.11"
+
       - name: Install uv
         uses: astral-sh/setup-uv@v4
         with:
           version: "latest"
-      
+
+      - name: Prepare uv cache directories
+        run: |
+          mkdir -p ~/.cache/uv
+          mkdir -p ~/.local/share/uv
+
       - name: Cache uv dependencies
         uses: actions/cache@v4
         with:
@@ -129,29 +139,29 @@ jobs:
           key: ${{ runner.os }}-uv-${{ hashFiles('**/uv.lock') }}
           restore-keys: |
             ${{ runner.os }}-uv-
-      
+
       - name: Install dependencies
         run: |
-          uv sync
+          uv sync --no-dev
           uv pip install -e .
-      
+
       - name: Create logs directory
         run: mkdir -p logs
-      
+
       - name: Health check
         run: |
           uv run python -m src.sync_pipeline health
         timeout-minutes: 5
         env:
           LOG_FILE: logs/board-sync.log
-      
+
       - name: Run board vector sync
         run: |
           uv run python -m src.sync_pipeline board-sync
         timeout-minutes: 60
         env:
           LOG_FILE: logs/board-sync.log
-      
+
       - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -166,7 +176,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [policy-vector-sync, board-vector-sync]
     if: always()
-    
+
     steps:
       - name: Send completion notification
         run: |

@@ -48,6 +48,11 @@ jobs:
         with:
           version: "latest"
 
+      - name: Prepare uv cache directories
+        run: |
+          mkdir -p ~/.cache/uv
+          mkdir -p ~/.local/share/uv
+
       - name: Cache uv dependencies
         uses: actions/cache@v4
         with:
@@ -60,7 +65,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync
+          uv sync --no-dev
           uv pip install -e .
 
       - name: Create logs directory
