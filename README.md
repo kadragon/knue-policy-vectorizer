@@ -599,9 +599,8 @@ uv run python -m src.sync_pipeline config-backup
 # 백업 목록 확인
 uv run python -m src.sync_pipeline config-backups
 
-# 설정 내보내기 (JSON/ENV/YAML)
+# 설정 내보내기 (JSON/YAML)
 uv run python -m src.sync_pipeline config-export --format json > my_config.json
-uv run python -m src.sync_pipeline config-export --format env > my_config.env
 
 # 정리 작업 (30일 이전 백업 삭제)
 uv run python -m src.sync_pipeline config-cleanup --days 30

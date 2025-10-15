@@ -54,8 +54,9 @@ class TestCLIProviders:
 
         assert result.exit_code == 0
         assert (
-            "Configuration saved with" in result.output
-        )  # Could be "masked credentials" or "secure permissions"
+            "Configuration saving to .env is disabled for security reasons"
+            in result.output
+        )
 
     def test_configure_providers_with_validation_errors(self):
         """Test configuration with validation errors"""
@@ -306,7 +307,7 @@ class TestCLIProviders:
 
     def test_config_file_operations(self):
         """Test configuration file save/load operations"""
-        from src.sync_pipeline import load_config_file, save_config_file
+        from src.sync_pipeline import load_config_file
 
         config = Config(
             embedding_provider=EmbeddingProvider.OPENAI,
@@ -315,14 +316,11 @@ class TestCLIProviders:
             qdrant_cloud_url="https://test.qdrant.tech",
         )
 
+        # .env saving disabled, test loading only
         with self.runner.isolated_filesystem():
-            # Test saving config
-            result = self.runner.invoke(
-                save_config_file, ["--output", "test-config.env"], obj=config
-            )
-
-            assert result.exit_code == 0
-            assert os.path.exists("test-config.env")
+            # Create a test .env file manually
+            with open("test-config.env", "w") as f:
+                f.write("EMBEDDING_PROVIDER=ollama\nVECTOR_PROVIDER=qdrant_local\n")
 
             # Test loading config
             result = self.runner.invoke(
@@ -378,18 +376,22 @@ class TestCLIProviders:
 
         assert result.exit_code == 0
 
-    def test_config_export_import(self):
-        """Test configuration export and import functionality"""
-        from src.sync_pipeline import export_config, import_config
+    def test_config_import(self):
+        """Test configuration import functionality"""
+        from src.sync_pipeline import import_config
 
         with self.runner.isolated_filesystem():
-            # Export current config
-            result = self.runner.invoke(
-                export_config, ["--format", "json", "--output", "config.json"]
-            )
+            # Create a test JSON config
+            import json
 
-            assert result.exit_code == 0
-            assert os.path.exists("config.json")
+            config_data = {
+                "embedding_provider": "ollama",
+                "vector_provider": "qdrant_local",
+                "qdrant_collection": "test_collection",
+                "vector_size": 1024,
+            }
+            with open("config.json", "w") as f:
+                json.dump(config_data, f)
 
             # Import config
             result = self.runner.invoke(import_config, ["--config-file", "config.json"])

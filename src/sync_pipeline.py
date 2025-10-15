@@ -685,38 +685,7 @@ def configure_providers():
     click.echo(f"  Vector Provider: {new_config.vector_provider}")
 
     if click.confirm("\nSave this configuration?"):
-        # Ask user if they want to include secrets (dangerous)
-        include_secrets = False
-        if any([new_config.openai_api_key, new_config.qdrant_api_key]):
-            click.echo("\n⚠️  WARNING: Your configuration contains sensitive API keys.")
-            click.echo(
-                "By default, these will be masked in the .env file for security."
-            )
-            if click.confirm(
-                "Do you want to include actual API keys? (NOT RECOMMENDED)",
-                default=False,
-            ):
-                click.echo(
-                    "⚠️  API keys will be stored in clear text. Keep this file secure!"
-                )
-                include_secrets = True
-
-        # Generate .env content and save to default path
-        env_content = _generate_env_content(new_config, include_secrets=include_secrets)
-        save_path = ".env"
-        try:
-            with open(save_path, "w") as f:
-                f.write(env_content)
-            if include_secrets:
-                # Set secure file permissions
-                import os
-
-                os.chmod(save_path, 0o600)
-                click.echo("Configuration saved with secure permissions (600)")
-            else:
-                click.echo("Configuration saved with masked credentials")
-        except Exception as e:
-            click.echo(f"❌ Failed to save configuration: {e}")
+        click.echo("❌ Configuration saving to .env is disabled for security reasons")
     else:
         click.echo("❌ Configuration not saved")
 
@@ -1506,103 +1475,6 @@ def list_config_backups():
         click.echo()
 
 
-@main.command(name="config-export")
-@click.option("--format", default="env", help="Export format (env, json, yaml)")
-@click.option("--output", "-o", help="Output file")
-@click.option("--include-secrets", is_flag=True, help="Include sensitive values")
-@click.option("--config-file", help="Configuration file to export")
-def export_config(
-    format: str,
-    output: Optional[str] = None,
-    include_secrets: bool = False,
-    config_file: Optional[str] = None,
-):
-    """Export configuration in various formats."""
-    click.echo(f"📤 Exporting Configuration ({format.upper()})\n")
-
-    if config_file:
-        # Load from file
-        try:
-            with open(config_file, "r") as f:
-                config_dict = json.load(f)
-            config = Config.from_dict(config_dict)
-        except Exception as e:
-            click.echo(f"❌ Failed to load configuration file: {e}")
-            return
-    else:
-        # Use current environment
-        try:
-            config = Config.from_env()
-        except Exception as e:
-            click.echo(f"❌ Failed to load configuration from environment: {e}")
-            return
-
-    config_manager = ConfigurationManager()
-
-    if not include_secrets:
-        click.echo("✅ Sensitive values will be masked for security")
-    else:
-        click.echo("⚠️  WARNING: Exporting with sensitive credentials in clear text!")
-        click.echo(
-            "   Ensure proper file permissions and do not commit to version control."
-        )
-
-    try:
-        content = config_manager.export_config(
-            config, format=format, include_secrets=include_secrets
-        )
-
-        if output:
-            with open(output, "w") as f:
-                f.write(content)
-            click.echo(f"✅ Configuration exported to: {output}")
-        else:
-            click.echo(f"📄 Configuration Content:")
-            click.echo("=" * 50)
-            click.echo(content)
-            click.echo("=" * 50)
-
-    except Exception as e:
-        click.echo(f"❌ Export failed: {e}")
-
-
-@main.command(name="save-config")
-@click.option("--output", "-o", required=True, help="Output .env file path")
-@click.option(
-    "--include-secrets", is_flag=True, help="Include sensitive values (NOT RECOMMENDED)"
-)
-@click.pass_context
-def save_config_file(ctx: click.Context, output: str, include_secrets: bool = False):
-    """Save current or provided Config to an .env file."""
-    try:
-        config: Config = ctx.obj if isinstance(ctx.obj, Config) else Config.from_env()
-
-        if include_secrets:
-            click.echo(
-                "⚠️  WARNING: Sensitive credentials will be stored in clear text!"
-            )
-            if not click.confirm("Are you sure you want to continue?", default=False):
-                click.echo("❌ Operation cancelled")
-                return
-
-        content = _generate_env_content(config, include_secrets=include_secrets)
-        with open(output, "w") as f:
-            f.write(content)
-
-        if include_secrets:
-            # Set secure file permissions
-            import os
-
-            os.chmod(output, 0o600)
-            click.echo(
-                f"✅ Configuration saved to {output} with secure permissions (600)"
-            )
-        else:
-            click.echo(f"✅ Configuration saved to {output} with masked credentials")
-    except Exception as e:
-        click.echo(f"❌ Failed to save configuration: {e}")
-
-
 @main.command(name="load-config")
 @click.option("--config-file", required=True, help=".env file to load")
 def load_config_file(config_file: str):
@@ -1635,17 +1507,24 @@ def import_config(config_file: str):
             data = json.load(f)
         cfg = Config.from_dict(data)
         # Set env vars to reflect imported config
-        # Note: We need actual values here to set environment variables
-        env_content = _generate_env_content(cfg, include_secrets=True)
-        # Load the generated env content into current process env
-        for line in env_content.splitlines():
-            if not line or line.strip().startswith("#") or "=" not in line:
-                continue
-            key, val = line.split("=", 1)
-            # Skip masked values
-            if "***MASKED***" in val:
-                continue
-            os.environ[key.strip()] = val.strip().strip('"')
+        os.environ["EMBEDDING_PROVIDER"] = cfg.embedding_provider.value
+        os.environ["VECTOR_PROVIDER"] = cfg.vector_provider.value
+        if cfg.embedding_provider == EmbeddingProvider.OPENAI:
+            os.environ["OPENAI_API_KEY"] = cfg.openai_api_key
+            os.environ["OPENAI_MODEL"] = cfg.openai_model
+            os.environ["OPENAI_BASE_URL"] = cfg.openai_base_url
+        if cfg.embedding_provider == EmbeddingProvider.OLLAMA:
+            os.environ["OLLAMA_URL"] = cfg.ollama_url
+            os.environ["OLLAMA_MODEL"] = cfg.embedding_model
+        if cfg.vector_provider == VectorProvider.QDRANT_CLOUD:
+            os.environ["QDRANT_CLOUD_URL"] = cfg.qdrant_cloud_url
+            os.environ["QDRANT_API_KEY"] = cfg.qdrant_api_key
+        if cfg.vector_provider == VectorProvider.QDRANT_LOCAL:
+            os.environ["QDRANT_URL"] = cfg.qdrant_url
+        os.environ["COLLECTION_NAME"] = cfg.qdrant_collection
+        os.environ["VECTOR_SIZE"] = str(cfg.vector_size)
+        os.environ["MAX_TOKEN_LENGTH"] = str(cfg.max_tokens)
+        os.environ["LOG_LEVEL"] = cfg.log_level
         click.echo("✅ Configuration imported successfully")
     except Exception as e:
         click.echo(f"❌ Failed to import configuration: {e}")
@@ -1685,125 +1564,6 @@ def cleanup_config_backups(keep_days: int, dry_run: bool):
             click.echo(f"✅ Cleaned up {removed_count} old backups")
         else:
             click.echo("❌ Cleanup cancelled")
-
-
-def _generate_env_content(config: Config, include_secrets: bool = False) -> str:
-    """
-    Generate .env file content from configuration.
-
-    Args:
-        config: Configuration object
-        include_secrets: If True, include actual API keys. If False, mask them.
-                        WARNING: Setting this to True exposes sensitive credentials in clear text.
-
-    Returns:
-        String content for .env file
-    """
-
-    def _mask_secret(value: str) -> str:
-        """Mask sensitive value for security"""
-        if not value:
-            return ""
-        return (
-            f"***MASKED*** (first 4 chars: {value[:4]}...)"
-            if len(value) > 4
-            else "***MASKED***"
-        )
-
-    lines = [
-        "# Multi-Provider Configuration",
-        "# Generated by KNUE Policy Vectorizer",
-        "",
-    ]
-
-    if not include_secrets:
-        lines.extend(
-            [
-                "# WARNING: Sensitive values are masked for security",
-                "# Use --include-secrets flag with caution to export actual credentials",
-                "",
-            ]
-        )
-    else:
-        lines.extend(
-            [
-                "# WARNING: This file contains sensitive credentials in clear text!",
-                "# Do not commit this file to version control or share it publicly.",
-                "# Restrict file permissions: chmod 600 .env",
-                "",
-            ]
-        )
-
-    lines.extend(
-        [
-            "# Provider Selection",
-            f"EMBEDDING_PROVIDER={config.embedding_provider}",
-            f"VECTOR_PROVIDER={config.vector_provider}",
-            "",
-        ]
-    )
-
-    if config.embedding_provider == EmbeddingProvider.OPENAI:
-        openai_api_key = (
-            config.openai_api_key
-            if include_secrets
-            else _mask_secret(config.openai_api_key)
-        )
-        lines.extend(
-            [
-                "# OpenAI Configuration",
-                f"OPENAI_API_KEY={openai_api_key}",
-                f"OPENAI_MODEL={config.openai_model}",
-                f"OPENAI_BASE_URL={config.openai_base_url}",
-                "",
-            ]
-        )
-
-    if config.embedding_provider == EmbeddingProvider.OLLAMA:
-        lines.extend(
-            [
-                "# Ollama Configuration",
-                f"OLLAMA_URL={config.ollama_url}",
-                f"OLLAMA_MODEL={config.embedding_model}",
-                "",
-            ]
-        )
-
-    if config.vector_provider == VectorProvider.QDRANT_CLOUD:
-        qdrant_api_key = (
-            config.qdrant_api_key
-            if include_secrets
-            else _mask_secret(config.qdrant_api_key)
-        )
-        lines.extend(
-            [
-                "# Qdrant Cloud Configuration",
-                f"QDRANT_CLOUD_URL={config.qdrant_cloud_url}",
-                f"QDRANT_API_KEY={qdrant_api_key}",
-                "",
-            ]
-        )
-
-    if config.vector_provider == VectorProvider.QDRANT_LOCAL:
-        lines.extend(
-            [
-                "# Qdrant Local Configuration",
-                f"QDRANT_URL={config.qdrant_url}",
-                "",
-            ]
-        )
-
-    lines.extend(
-        [
-            "# Common Settings",
-            f"COLLECTION_NAME={config.qdrant_collection}",
-            f"VECTOR_SIZE={config.vector_size}",
-            f"MAX_TOKEN_LENGTH={config.max_tokens}",
-            f"LOG_LEVEL={config.log_level}",
-        ]
-    )
-
-    return "\n".join(lines)
 
 
 @main.command()
