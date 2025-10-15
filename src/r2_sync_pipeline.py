@@ -97,7 +97,11 @@ class CloudflareR2SyncPipeline:
                 processed_local_keys.add(object_key)
 
                 try:
-                    with open(file_path, "r", encoding="utf-8") as f:
+                    with open(
+                        os.path.join(self.config.repo_cache_dir, file_path),
+                        "r",
+                        encoding="utf-8",
+                    ) as f:
                         raw_content = f.read()
 
                     processed = self.markdown_processor.process_markdown_for_r2(
@@ -175,12 +179,13 @@ class CloudflareR2SyncPipeline:
             raise CloudflareR2SyncError(str(error)) from error
 
     def _get_local_markdown_files(self) -> List[str]:
-        """Find all markdown files in the configured repository cache directory."""
+        """Find all markdown files in the configured repository cache directory, excluding README files."""
         markdown_files = []
         for root, _, files in os.walk(self.config.repo_cache_dir):
             for file in files:
-                if file.endswith(".md"):
+                if file.endswith(".md") and not file.lower().startswith("readme"):
                     full_path = os.path.join(root, file)
-                    markdown_files.append(full_path)
+                    rel_path = os.path.relpath(full_path, self.config.repo_cache_dir)
+                    markdown_files.append(rel_path)
         self.logger.info("Found local markdown files", count=len(markdown_files))
         return markdown_files

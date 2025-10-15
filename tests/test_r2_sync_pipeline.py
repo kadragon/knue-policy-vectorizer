@@ -196,4 +196,22 @@ class TestCloudflareR2SyncPipeline:
         assert result["status"] == "partial_success"
         assert result["uploaded"] == 0
         assert result["failed"] == 1
-        assert result["failed_files"] == ["/fake/repo/new.md"]
+        assert result["failed_files"] == ["new.md"]
+
+    @patch("r2_sync_pipeline.CloudflareR2Service")
+    @patch("r2_sync_pipeline.MarkdownProcessor")
+    @patch("os.walk")
+    def test_get_local_markdown_files_excludes_readme(
+        self, mock_os_walk, mock_md_cls, mock_r2_cls, mock_config
+    ):
+        # Setup: directory with markdown files including README
+        mock_os_walk.return_value = [
+            ("/fake/repo", [], ["policy.md", "README.md", "readme.md", "guide.md"])
+        ]
+
+        # Execute
+        pipeline = CloudflareR2SyncPipeline(mock_config)
+        files = pipeline._get_local_markdown_files()
+
+        # Assert: README files are excluded, others included
+        assert set(files) == {"policy.md", "guide.md"}
