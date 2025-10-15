@@ -2,6 +2,7 @@
 
 import os
 import sys
+import time
 from typing import Any, Dict
 from unittest.mock import Mock, patch
 
@@ -16,7 +17,7 @@ class TestMarkdownProcessor:
 
     def test_markdown_processor_initialization(self):
         """Test MarkdownProcessor can be initialized."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
         assert processor is not None
@@ -25,7 +26,7 @@ class TestMarkdownProcessor:
 
     def test_remove_frontmatter_yaml(self):
         """Test removing YAML frontmatter from markdown content."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -58,7 +59,7 @@ tags: [education, regulation]
 
     def test_remove_frontmatter_toml(self):
         """Test removing TOML frontmatter from markdown content."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -81,7 +82,7 @@ TOML frontmatter 테스트"""
 
     def test_remove_frontmatter_returns_metadata(self):
         """Frontmatter removal should optionally return parsed metadata."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -104,7 +105,7 @@ tags:
 
     def test_extract_title_from_h1(self):
         """Test extracting title from H1 heading."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -138,7 +139,7 @@ tags:
 
     def test_extract_title_from_filename(self):
         """Test extracting title from filename when no H1 exists."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -155,7 +156,7 @@ tags:
 
     def test_extract_title_edge_cases(self):
         """Test title extraction edge cases."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -176,7 +177,7 @@ Some content"""
 
     def test_clean_content_basic(self):
         """Test basic content cleaning."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -207,7 +208,7 @@ Some content"""
 
     def test_clean_content_preserve_structure(self):
         """Test that content cleaning preserves markdown structure."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -237,7 +238,7 @@ code block
 
     def test_process_markdown_full_pipeline(self):
         """Test the complete markdown processing pipeline."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -288,9 +289,11 @@ category: education
 
     def test_generate_metadata(self):
         """Test metadata generation for processed documents."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
+        processor._policy_mapping_cache = {"테스트 문서": 42}
+        processor._cache_timestamp = time.time()
 
         content = "# 테스트 문서\n\n내용입니다."
         title = "테스트 문서"
@@ -336,7 +339,7 @@ category: education
 
     def test_calculate_document_id(self):
         """Test document ID calculation for consistent identification."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -359,7 +362,7 @@ category: education
 
     def test_estimate_token_count(self):
         """Test token count estimation for length validation."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -377,7 +380,7 @@ category: education
 
     def test_validate_content_length(self):
         """Test content length validation against limits."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -399,7 +402,7 @@ class TestMarkdownProcessorIntegration:
 
     def test_process_real_knue_document(self):
         """Test processing actual KNUE policy document format."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -447,7 +450,7 @@ def test_frontmatter_library_available():
 
 def test_crypto_utils_available():
     """Test that CryptoUtils works correctly for document ID generation."""
-    from src.crypto_utils import CryptoUtils
+    from src.utils.crypto_utils import CryptoUtils
 
     test_hash = CryptoUtils.calculate_data_integrity_hash("test")
     assert len(test_hash) == 64  # SHA-256 hash length
@@ -473,7 +476,7 @@ class TestDocumentChunkingIntegration:
 
     def test_create_document_for_vectorization_single_document(self):
         """Test document creation for non-chunked content."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -510,7 +513,7 @@ class TestDocumentChunkingIntegration:
 
     def test_create_document_for_vectorization_chunked_documents(self):
         """Test document creation for chunked content."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -587,7 +590,7 @@ class TestDocumentChunkingIntegration:
 
     def test_chunk_markdown_content_overlap_strategy(self):
         """Test the 800/200 overlap strategy in chunking."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 

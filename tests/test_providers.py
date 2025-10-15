@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from src.providers import (
+from src.utils.providers import (
     EmbeddingProvider,
     EmbeddingServiceInterface,
     ProviderConfig,

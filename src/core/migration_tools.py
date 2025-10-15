@@ -22,8 +22,8 @@ from tqdm import tqdm
 
 # Support both package and standalone imports
 try:
-    from .config import Config
-    from .providers import (
+    from src.config.config import Config
+    from src.utils.providers import (
         EmbeddingProvider,
         EmbeddingServiceInterface,
         ProviderFactory,
@@ -31,8 +31,8 @@ try:
         VectorServiceInterface,
     )
 except Exception:  # pragma: no cover - fallback when imported as a script
-    from config import Config  # type: ignore
-    from providers import (  # type: ignore
+    from src.config.config import Config  # type: ignore
+    from src.utils.providers import (  # type: ignore
         EmbeddingProvider,
         EmbeddingServiceInterface,
         ProviderFactory,

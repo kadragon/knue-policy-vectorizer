@@ -10,14 +10,14 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from src.config import Config
-from src.migration_tools import (
+from src.config.config import Config
+from src.core.migration_tools import (
     CompatibilityCheck,
     MigrationManager,
     MigrationReport,
     create_migration_config,
 )
-from src.providers import EmbeddingProvider, VectorProvider
+from src.utils.providers import EmbeddingProvider, VectorProvider
 
 
 class TestMigrationReport:
@@ -136,13 +136,13 @@ class TestMigrationManager:
 
     def test_migration_manager_initialization(self):
         """Test migration manager initialization"""
-        with patch("src.migration_tools.ProviderFactory"):
+        with patch("src.core.migration_tools.ProviderFactory"):
             manager = MigrationManager(self.source_config, self.target_config)
 
             assert manager.source_config == self.source_config
             assert manager.target_config == self.target_config
 
-    @patch("src.migration_tools.ProviderFactory")
+    @patch("src.core.migration_tools.ProviderFactory")
     def test_check_compatibility_success(self, mock_factory):
         """Test compatibility check with matching dimensions"""
         # Setup mocks
@@ -180,7 +180,7 @@ class TestMigrationManager:
         assert compatibility.source_dimensions == 1536
         assert compatibility.target_dimensions == 1536
 
-    @patch("src.migration_tools.ProviderFactory")
+    @patch("src.core.migration_tools.ProviderFactory")
     def test_check_compatibility_dimension_mismatch(self, mock_factory):
         """Test compatibility check with dimension mismatch"""
         # Setup mocks
@@ -226,7 +226,7 @@ class TestMigrationManager:
         self.target_config.vector_size = original_target_size
         assert "Dimension mismatch" in compatibility.warnings[0]
 
-    @patch("src.migration_tools.ProviderFactory")
+    @patch("src.core.migration_tools.ProviderFactory")
     def test_create_backup_success(self, mock_factory):
         """Test successful backup creation"""
         # Setup mocks
@@ -269,7 +269,7 @@ class TestMigrationManager:
             assert backup_data["total_points"] == 2
             assert backup_data["collection_name"] == "test_collection"
 
-    @patch("src.migration_tools.ProviderFactory")
+    @patch("src.core.migration_tools.ProviderFactory")
     def test_restore_from_backup_success(self, mock_factory):
         """Test successful restore from backup"""
         # Setup mocks
@@ -329,7 +329,7 @@ class TestMigrationManager:
         finally:
             Path(backup_path).unlink()
 
-    @patch("src.migration_tools.ProviderFactory")
+    @patch("src.core.migration_tools.ProviderFactory")
     def test_compare_performance(self, mock_factory):
         """Test performance comparison between providers"""
         # Setup mocks
@@ -393,7 +393,7 @@ class TestCreateMigrationConfig:
 
     def test_create_migration_config_basic(self):
         """Test creating basic migration configuration"""
-        with patch("src.migration_tools.Config") as mock_config_class:
+        with patch("src.core.migration_tools.Config") as mock_config_class:
             mock_base_config = Mock()
             mock_base_config.to_dict.return_value = {
                 "repo_url": "test",
@@ -422,7 +422,7 @@ class TestCreateMigrationConfig:
 
     def test_create_migration_config_with_overrides(self):
         """Test creating migration configuration with overrides"""
-        with patch("src.migration_tools.Config") as mock_config_class:
+        with patch("src.core.migration_tools.Config") as mock_config_class:
             mock_base_config = Mock()
             mock_base_config.to_dict.return_value = {
                 "repo_url": "test",
@@ -456,7 +456,7 @@ class TestCreateMigrationConfig:
 class TestMigrationIntegration:
     """Test migration tools integration scenarios"""
 
-    @patch("src.migration_tools.ProviderFactory")
+    @patch("src.core.migration_tools.ProviderFactory")
     def test_full_migration_workflow(self, mock_factory):
         """Test complete migration workflow"""
         # Setup comprehensive mocks

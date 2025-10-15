@@ -11,9 +11,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from src.config import Config
-from src.config_manager import ConfigurationManager
-from src.providers import EmbeddingProvider, VectorProvider
+from src.config.config import Config
+from src.config.config_manager import ConfigurationManager
+from src.utils.providers import EmbeddingProvider, VectorProvider
 
 
 class TestSecurityClearText:

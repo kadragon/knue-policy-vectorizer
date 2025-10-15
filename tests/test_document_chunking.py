@@ -15,7 +15,7 @@ class TestDocumentChunking:
 
     def test_chunking_basic_functionality(self):
         """Test basic chunking splits long documents."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -49,7 +49,7 @@ class TestDocumentChunking:
 
     def test_chunking_preserves_section_boundaries(self):
         """Test that chunking respects markdown section boundaries."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -101,7 +101,7 @@ class TestDocumentChunking:
 
     def test_chunking_with_overlap_strategy(self):
         """Test chunking with 800/200 nesting overlap strategy."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -139,7 +139,7 @@ class TestDocumentChunking:
 
     def test_chunking_maintains_context_integrity(self):
         """Test that chunking maintains meaningful context boundaries."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -190,7 +190,7 @@ class TestDocumentChunking:
 
     def test_chunking_handles_very_short_content(self):
         """Test that chunking handles content that doesn't need splitting."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -212,7 +212,7 @@ class TestDocumentChunking:
 
     def test_chunking_handles_empty_content(self):
         """Test chunking behavior with empty or whitespace-only content."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -230,7 +230,7 @@ class TestDocumentChunking:
 
     def test_chunking_sequential_indexing(self):
         """Test that chunks are indexed sequentially."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -264,7 +264,7 @@ class TestDocumentChunking:
 
     def test_chunking_section_title_extraction(self):
         """Test that section titles are properly extracted for each chunk."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -314,7 +314,7 @@ class TestDocumentChunking:
 
     def test_chunking_token_count_accuracy(self):
         """Test that token counting in chunks is reasonably accurate."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -352,7 +352,7 @@ This is a mixed language document for testing token estimation.
 
     def test_chunking_character_count_tracking(self):
         """Test that character counts are properly tracked in chunks."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -382,7 +382,7 @@ class TestChunkingIntegration:
 
     def test_process_markdown_with_chunking_needed(self):
         """Test complete pipeline when chunking is needed."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -425,7 +425,7 @@ category: policy
 
     def test_process_markdown_no_chunking_needed(self):
         """Test complete pipeline when chunking is not needed."""
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 
@@ -458,7 +458,7 @@ class TestChunkingPerformance:
         """Test that chunking performance is reasonable for large documents."""
         import time
 
-        from markdown_processor import MarkdownProcessor
+        from src.utils.markdown_processor import MarkdownProcessor
 
         processor = MarkdownProcessor()
 

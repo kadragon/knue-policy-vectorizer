@@ -1,6 +1,6 @@
 import pytest
 
-from src.knue_board_ingestor import KnueBoardIngestor
+from src.services.knue_board_ingestor import KnueBoardIngestor
 
 
 @pytest.mark.unit

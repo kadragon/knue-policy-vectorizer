@@ -20,11 +20,11 @@ import requests
 import structlog
 
 try:  # Local imports for package and script contexts
-    from .config import Config
-    from .providers import EmbeddingProvider, ProviderFactory
+    from src.config.config import Config
+    from src.utils.providers import EmbeddingProvider, ProviderFactory
 except Exception:  # pragma: no cover
-    from config import Config  # type: ignore
-    from providers import EmbeddingProvider, ProviderFactory  # type: ignore
+    from src.config.config import Config  # type: ignore
+    from src.utils.providers import EmbeddingProvider, ProviderFactory  # type: ignore
 
 logger = structlog.get_logger(__name__)
 

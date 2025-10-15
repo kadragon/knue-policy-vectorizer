@@ -22,7 +22,7 @@ class TestSyncPipelineInit:
 
     def test_init_with_default_config(self):
         """Test initialization with default configuration."""
-        from sync_pipeline import SyncPipeline
+        from src.pipelines.sync_pipeline import SyncPipeline
 
         pipeline = SyncPipeline()
         assert pipeline.config is not None
@@ -35,7 +35,7 @@ class TestSyncPipelineInit:
 
     def test_init_with_custom_config(self):
         """Test initialization with custom configuration."""
-        from sync_pipeline import SyncPipeline
+        from src.pipelines.sync_pipeline import SyncPipeline
 
         config = Config(
             repo_url="https://github.com/custom/repo.git",
@@ -50,7 +50,7 @@ class TestSyncPipelineInit:
 
     def test_components_lazy_initialization(self):
         """Test that components are lazily initialized."""
-        from sync_pipeline import SyncPipeline
+        from src.pipelines.sync_pipeline import SyncPipeline
 
         pipeline = SyncPipeline()
 
@@ -69,11 +69,11 @@ class TestSyncPipelineInit:
 class TestSyncPipelineHealthChecks:
     """Test health check functionality."""
 
-    @patch("sync_pipeline.SyncPipeline.embedding_service")
-    @patch("sync_pipeline.SyncPipeline.qdrant_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.embedding_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.qdrant_service")
     def test_health_check_success(self, mock_qdrant, mock_embedding):
         """Test successful health check."""
-        from sync_pipeline import SyncPipeline
+        from src.pipelines.sync_pipeline import SyncPipeline
 
         # Mock successful health checks
         mock_embedding.health_check.return_value = True
@@ -86,11 +86,11 @@ class TestSyncPipelineHealthChecks:
         mock_embedding.health_check.assert_called_once()
         mock_qdrant.health_check.assert_called_once()
 
-    @patch("sync_pipeline.SyncPipeline.embedding_service")
-    @patch("sync_pipeline.SyncPipeline.qdrant_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.embedding_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.qdrant_service")
     def test_health_check_embedding_failure(self, mock_qdrant, mock_embedding):
         """Test health check with embedding service failure."""
-        from sync_pipeline import SyncPipeline
+        from src.pipelines.sync_pipeline import SyncPipeline
 
         # Mock embedding failure
         mock_embedding.health_check.return_value = False
@@ -101,11 +101,11 @@ class TestSyncPipelineHealthChecks:
 
         assert result is False
 
-    @patch("sync_pipeline.SyncPipeline.embedding_service")
-    @patch("sync_pipeline.SyncPipeline.qdrant_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.embedding_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.qdrant_service")
     def test_health_check_qdrant_failure(self, mock_qdrant, mock_embedding):
         """Test health check with Qdrant service failure."""
-        from sync_pipeline import SyncPipeline
+        from src.pipelines.sync_pipeline import SyncPipeline
 
         # Mock Qdrant failure
         mock_embedding.health_check.return_value = True
@@ -120,10 +120,10 @@ class TestSyncPipelineHealthChecks:
 class TestSyncPipelineCollectionManagement:
     """Test collection management functionality."""
 
-    @patch("sync_pipeline.SyncPipeline.qdrant_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.qdrant_service")
     def test_ensure_collection_exists_creates_new(self, mock_qdrant):
         """Test collection creation when it doesn't exist."""
-        from sync_pipeline import SyncPipeline
+        from src.pipelines.sync_pipeline import SyncPipeline
 
         # Mock collection doesn't exist
         mock_qdrant.collection_exists.return_value = False
@@ -136,10 +136,10 @@ class TestSyncPipelineCollectionManagement:
         mock_qdrant.collection_exists.assert_called_once_with()
         mock_qdrant.create_collection.assert_called_once()
 
-    @patch("sync_pipeline.SyncPipeline.qdrant_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.qdrant_service")
     def test_ensure_collection_exists_already_exists(self, mock_qdrant):
         """Test when collection already exists."""
-        from sync_pipeline import SyncPipeline
+        from src.pipelines.sync_pipeline import SyncPipeline
 
         # Mock collection exists
         mock_qdrant.collection_exists.return_value = True
@@ -155,13 +155,13 @@ class TestSyncPipelineCollectionManagement:
 class TestSyncPipelineMainSync:
     """Test main synchronization logic."""
 
-    @patch("sync_pipeline.SyncPipeline.qdrant_service")
-    @patch("sync_pipeline.SyncPipeline.embedding_service")
-    @patch("sync_pipeline.SyncPipeline.markdown_processor")
-    @patch("sync_pipeline.SyncPipeline.git_watcher")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.qdrant_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.embedding_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.markdown_processor")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.git_watcher")
     def test_sync_no_changes(self, mock_git, mock_md, mock_embedding, mock_qdrant):
         """Test sync when there are no changes."""
-        from sync_pipeline import SyncPipeline
+        from src.pipelines.sync_pipeline import SyncPipeline
 
         # Mock no changes
         mock_git.has_changes.return_value = False
@@ -179,15 +179,15 @@ class TestSyncPipelineMainSync:
         mock_embedding.generate_embedding.assert_not_called()
         mock_qdrant.upsert_point.assert_not_called()
 
-    @patch("sync_pipeline.SyncPipeline.qdrant_service")
-    @patch("sync_pipeline.SyncPipeline.embedding_service")
-    @patch("sync_pipeline.SyncPipeline.markdown_processor")
-    @patch("sync_pipeline.SyncPipeline.git_watcher")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.qdrant_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.embedding_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.markdown_processor")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.git_watcher")
     def test_sync_with_added_files(
         self, mock_git, mock_md, mock_embedding, mock_qdrant
     ):
         """Test sync with newly added markdown files."""
-        from sync_pipeline import SyncPipeline
+        from src.pipelines.sync_pipeline import SyncPipeline
 
         # Mock changes with added files
         mock_git.has_changes.return_value = True
@@ -233,15 +233,15 @@ class TestSyncPipelineMainSync:
         mock_embedding.generate_embedding.assert_called_once()
         mock_qdrant.upsert_point.assert_called_once()
 
-    @patch("sync_pipeline.SyncPipeline.qdrant_service")
-    @patch("sync_pipeline.SyncPipeline.embedding_service")
-    @patch("sync_pipeline.SyncPipeline.markdown_processor")
-    @patch("sync_pipeline.SyncPipeline.git_watcher")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.qdrant_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.embedding_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.markdown_processor")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.git_watcher")
     def test_sync_with_deleted_files(
         self, mock_git, mock_md, mock_embedding, mock_qdrant
     ):
         """Test sync with deleted markdown files."""
-        from sync_pipeline import SyncPipeline
+        from src.pipelines.sync_pipeline import SyncPipeline
 
         # Mock changes with deleted files
         mock_git.has_changes.return_value = True
@@ -272,15 +272,15 @@ class TestSyncPipelineMainSync:
         # Should not generate embeddings for deleted files
         mock_embedding.generate_embedding.assert_not_called()
 
-    @patch("sync_pipeline.SyncPipeline.qdrant_service")
-    @patch("sync_pipeline.SyncPipeline.embedding_service")
-    @patch("sync_pipeline.SyncPipeline.markdown_processor")
-    @patch("sync_pipeline.SyncPipeline.git_watcher")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.qdrant_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.embedding_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.markdown_processor")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.git_watcher")
     def test_sync_with_mixed_changes(
         self, mock_git, mock_md, mock_embedding, mock_qdrant
     ):
         """Test sync with added, modified, and deleted files."""
-        from sync_pipeline import SyncPipeline
+        from src.pipelines.sync_pipeline import SyncPipeline
 
         # Mock mixed changes
         mock_git.has_changes.return_value = True
@@ -370,10 +370,10 @@ class TestSyncPipelineMainSync:
 class TestSyncPipelineErrorHandling:
     """Test error handling in sync pipeline."""
 
-    @patch("sync_pipeline.SyncPipeline.git_watcher")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.git_watcher")
     def test_sync_git_error(self, mock_git):
         """Test handling of Git-related errors."""
-        from sync_pipeline import SyncError, SyncPipeline
+        from src.pipelines.sync_pipeline import SyncError, SyncPipeline
 
         # Mock Git error
         mock_git.pull_updates.side_effect = Exception("Git pull failed")
@@ -385,13 +385,13 @@ class TestSyncPipelineErrorHandling:
 
         assert "Git pull failed" in str(exc_info.value)
 
-    @patch("sync_pipeline.SyncPipeline.qdrant_service")
-    @patch("sync_pipeline.SyncPipeline.embedding_service")
-    @patch("sync_pipeline.SyncPipeline.markdown_processor")
-    @patch("sync_pipeline.SyncPipeline.git_watcher")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.qdrant_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.embedding_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.markdown_processor")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.git_watcher")
     def test_sync_embedding_error(self, mock_git, mock_md, mock_embedding, mock_qdrant):
         """Test handling of embedding generation errors."""
-        from sync_pipeline import SyncPipeline
+        from src.pipelines.sync_pipeline import SyncPipeline
 
         # Mock changes and processing
         mock_git.has_changes.return_value = True
@@ -430,13 +430,13 @@ class TestSyncPipelineErrorHandling:
         assert len(result["failed_files"]) == 1
         assert "test.md" in result["failed_files"]
 
-    @patch("sync_pipeline.SyncPipeline.qdrant_service")
-    @patch("sync_pipeline.SyncPipeline.embedding_service")
-    @patch("sync_pipeline.SyncPipeline.markdown_processor")
-    @patch("sync_pipeline.SyncPipeline.git_watcher")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.qdrant_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.embedding_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.markdown_processor")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.git_watcher")
     def test_sync_qdrant_error(self, mock_git, mock_md, mock_embedding, mock_qdrant):
         """Test handling of Qdrant upsert errors."""
-        from sync_pipeline import SyncPipeline
+        from src.pipelines.sync_pipeline import SyncPipeline
 
         # Mock changes and processing
         mock_git.has_changes.return_value = True
@@ -475,15 +475,15 @@ class TestSyncPipelineErrorHandling:
         assert result["upserted"] == 0
         assert len(result["failed_files"]) == 1
 
-    @patch("sync_pipeline.SyncPipeline.qdrant_service")
-    @patch("sync_pipeline.SyncPipeline.embedding_service")
-    @patch("sync_pipeline.SyncPipeline.markdown_processor")
-    @patch("sync_pipeline.SyncPipeline.git_watcher")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.qdrant_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.embedding_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.markdown_processor")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.git_watcher")
     def test_sync_with_renamed_files(
         self, mock_git, mock_md, mock_embedding, mock_qdrant
     ):
         """Test sync with renamed markdown files."""
-        from sync_pipeline import SyncPipeline
+        from src.pipelines.sync_pipeline import SyncPipeline
 
         # Mock changes with renamed files
         mock_git.has_changes.return_value = True
@@ -545,15 +545,15 @@ class TestSyncPipelineErrorHandling:
         mock_md.process_markdown.assert_called_once()
         mock_embedding.generate_embedding.assert_called_once()
 
-    @patch("sync_pipeline.SyncPipeline.qdrant_service")
-    @patch("sync_pipeline.SyncPipeline.embedding_service")
-    @patch("sync_pipeline.SyncPipeline.markdown_processor")
-    @patch("sync_pipeline.SyncPipeline.git_watcher")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.qdrant_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.embedding_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.markdown_processor")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.git_watcher")
     def test_sync_with_mixed_changes_including_renames(
         self, mock_git, mock_md, mock_embedding, mock_qdrant
     ):
         """Test sync with mixed changes including renames."""
-        from sync_pipeline import SyncPipeline
+        from src.pipelines.sync_pipeline import SyncPipeline
 
         # Mock mixed changes including renames
         mock_git.has_changes.return_value = True
@@ -617,13 +617,13 @@ class TestSyncPipelineErrorHandling:
 class TestSyncPipelineReindexAll:
     """Test full reindexing functionality."""
 
-    @patch("sync_pipeline.SyncPipeline.qdrant_service")
-    @patch("sync_pipeline.SyncPipeline.embedding_service")
-    @patch("sync_pipeline.SyncPipeline.markdown_processor")
-    @patch("sync_pipeline.SyncPipeline.git_watcher")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.qdrant_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.embedding_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.markdown_processor")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.git_watcher")
     def test_reindex_all_success(self, mock_git, mock_md, mock_embedding, mock_qdrant):
         """Test successful full reindexing."""
-        from sync_pipeline import SyncPipeline
+        from src.pipelines.sync_pipeline import SyncPipeline
 
         # Mock markdown files
         mock_git.get_markdown_files.return_value = ["policy1.md", "policy2.md"]
@@ -702,11 +702,11 @@ class TestSyncPipelineReindexAll:
         assert mock_embedding.generate_embedding.call_count == 2
         assert mock_qdrant.upsert_point.call_count == 2
 
-    @patch("sync_pipeline.SyncPipeline.qdrant_service")
-    @patch("sync_pipeline.SyncPipeline.git_watcher")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.qdrant_service")
+    @patch("src.pipelines.sync_pipeline.SyncPipeline.git_watcher")
     def test_reindex_all_no_files(self, mock_git, mock_qdrant):
         """Test reindexing when no markdown files exist."""
-        from sync_pipeline import SyncPipeline
+        from src.pipelines.sync_pipeline import SyncPipeline
 
         # Mock no files
         mock_git.get_markdown_files.return_value = []
@@ -729,11 +729,11 @@ class TestSyncPipelineIntegration:
     def test_sync_pipeline_imports(self):
         """Test that sync pipeline can import all required modules."""
         # Test component imports work
-        from config import Config
-        from embedding_service_openai import OpenAIEmbeddingService
-        from git_watcher import GitWatcher
-        from markdown_processor import MarkdownProcessor
-        from qdrant_service import QdrantService
+        from src.config.config import Config
+        from src.core.git_watcher import GitWatcher
+        from src.services.embedding_service_openai import OpenAIEmbeddingService
+        from src.services.qdrant_service import QdrantService
+        from src.utils.markdown_processor import MarkdownProcessor
 
         # All imports should work without error
         assert GitWatcher is not None
@@ -765,7 +765,7 @@ def test_sync_error_class():
     """Test that SyncError exception class will be implemented."""
     # This test will fail until SyncError is implemented
     try:
-        from sync_pipeline import SyncError
+        from src.pipelines.sync_pipeline import SyncError
 
         error = SyncError("Test error", cause=Exception("Original error"))
         assert str(error) == "Test error"
@@ -779,7 +779,7 @@ def test_sync_pipeline_cli_interface():
     """Test CLI interface functionality."""
     # This test will fail until CLI is implemented
     try:
-        from sync_pipeline import main
+        from src.pipelines.sync_pipeline import main
 
         # Should be able to call main without errors
         assert main is not None

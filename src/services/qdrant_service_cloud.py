@@ -21,7 +21,7 @@ from qdrant_client.models import (
     VectorParams,
 )
 
-from .providers import VectorServiceInterface
+from src.utils.providers import VectorServiceInterface
 
 logger = structlog.get_logger(__name__)
 

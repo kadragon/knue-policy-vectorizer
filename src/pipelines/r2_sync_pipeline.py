@@ -10,15 +10,16 @@ import structlog
 
 # Support both package and standalone imports
 try:
-    from .cloudflare_r2_service import CloudflareR2Service
-    from .config import Config
-    from .logger import setup_logger
-    from .markdown_processor import MarkdownProcessor
+    from src.config.config import Config
+    from src.services.cloudflare_r2_service import CloudflareR2Service
+    from src.utils.logger import setup_logger
+    from src.utils.markdown_processor import MarkdownProcessor
 except ImportError:  # pragma: no cover
-    from cloudflare_r2_service import CloudflareR2Service  # type: ignore
-    from config import Config  # type: ignore
-    from logger import setup_logger  # type: ignore
     from markdown_processor import MarkdownProcessor  # type: ignore
+
+    from src.config.config import Config  # type: ignore
+    from src.services.cloudflare_r2_service import CloudflareR2Service  # type: ignore
+    from src.utils.logger import setup_logger  # type: ignore
 
 logger = structlog.get_logger(__name__)
 

@@ -46,13 +46,13 @@ except Exception:  # pragma: no cover - fallback path when cryptography isn't in
 
 # Support both package and standalone imports
 try:
-    from .config import Config
-    from .crypto_utils import CryptoUtils
-    from .providers import EmbeddingProvider, VectorProvider
+    from src.config.config import Config
+    from src.utils.crypto_utils import CryptoUtils
+    from src.utils.providers import EmbeddingProvider, VectorProvider
 except Exception:  # pragma: no cover - fallback when imported as a script
-    from config import Config  # type: ignore
-    from crypto_utils import CryptoUtils  # type: ignore
-    from providers import EmbeddingProvider, VectorProvider  # type: ignore
+    from src.config.config import Config  # type: ignore
+    from src.utils.crypto_utils import CryptoUtils  # type: ignore
+    from src.utils.providers import EmbeddingProvider, VectorProvider  # type: ignore
 
 logger = structlog.get_logger(__name__)
 

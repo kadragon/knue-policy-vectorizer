@@ -187,9 +187,9 @@ class ProviderFactory:
     ) -> EmbeddingServiceInterface:
         """Create OpenAI embedding service instance"""
         try:
-            from .embedding_service_openai import OpenAIEmbeddingService
+            from src.services.embedding_service_openai import OpenAIEmbeddingService
         except ImportError:
-            from embedding_service_openai import OpenAIEmbeddingService
+            from src.services.embedding_service_openai import OpenAIEmbeddingService
         return OpenAIEmbeddingService(
             api_key=config["api_key"],
             model=config.get("model", "text-embedding-3-small"),
@@ -201,9 +201,9 @@ class ProviderFactory:
     ) -> VectorServiceInterface:
         """Create Qdrant Cloud service instance"""
         try:
-            from .qdrant_service_cloud import QdrantCloudService
+            from src.services.qdrant_service_cloud import QdrantCloudService
         except ImportError:
-            from qdrant_service_cloud import QdrantCloudService
+            from src.services.qdrant_service_cloud import QdrantCloudService
         return QdrantCloudService(
             url=config["url"],
             api_key=config["api_key"],

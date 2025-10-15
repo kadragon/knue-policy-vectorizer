@@ -12,9 +12,9 @@ import tiktoken
 from openai import AuthenticationError, OpenAI, OpenAIError, RateLimitError
 
 try:
-    from .providers import EmbeddingServiceInterface
+    from src.utils.providers import EmbeddingServiceInterface
 except ImportError:  # pragma: no cover - fallback for script imports
-    from providers import EmbeddingServiceInterface
+    from src.utils.providers import EmbeddingServiceInterface
 
 logger = structlog.get_logger(__name__)
 
