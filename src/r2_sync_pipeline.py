@@ -2,20 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+import hashlib
+import os
+from typing import Any, Dict, List, Optional
 
 import structlog
 
+# Support both package and standalone imports
 try:
     from .cloudflare_r2_service import CloudflareR2Service
     from .config import Config
-    from .git_watcher import GitWatcher
     from .logger import setup_logger
     from .markdown_processor import MarkdownProcessor
-except Exception:  # pragma: no cover - fallback when run as script
+except ImportError:  # pragma: no cover
     from cloudflare_r2_service import CloudflareR2Service  # type: ignore
     from config import Config  # type: ignore
-    from git_watcher import GitWatcher  # type: ignore
     from logger import setup_logger  # type: ignore
     from markdown_processor import MarkdownProcessor  # type: ignore
 
@@ -33,19 +34,7 @@ class CloudflareR2SyncPipeline:
         self.config = config or Config()
         setup_logger(self.config.log_level, "CloudflareR2SyncPipeline")
         self.logger = logger.bind(pipeline="cloudflare_r2_sync")
-        self._last_commit: Optional[str] = None
-
-    @property
-    def git_watcher(self) -> GitWatcher:
-        if not hasattr(self, "_git_watcher"):
-            git_config = {
-                "repo_url": self.config.repo_url,
-                "branch": self.config.branch,
-                "cache_dir": self.config.repo_cache_dir,
-                "log_level": self.config.log_level,
-            }
-            self._git_watcher = GitWatcher(git_config)
-        return self._git_watcher
+        self._r2_file_etags: Optional[Dict[str, str]] = None
 
     @property
     def markdown_processor(self) -> MarkdownProcessor:
@@ -60,166 +49,138 @@ class CloudflareR2SyncPipeline:
             self._r2_service = CloudflareR2Service(r2_config)
         return self._r2_service
 
+    def _get_r2_etags(self) -> Dict[str, str]:
+        """Fetch and cache all document ETags from R2."""
+        if self._r2_file_etags is None:
+            self.logger.debug("Fetching all document ETags from R2...")
+            self._r2_file_etags = self.r2_service.list_all_documents()
+            self.logger.info("ETag cache populated", count=len(self._r2_file_etags))
+        return self._r2_file_etags
+
+    @staticmethod
+    def _calculate_md5(content: str) -> str:
+        """Calculate the MD5 hash of the content, compatible with R2's ETag."""
+        return hashlib.md5(content.encode("utf-8")).hexdigest()
+
     def _build_metadata(
-        self,
-        file_path: str,
-        processed: Dict[str, Any],
-        commit_info: Dict[str, str],
-        doc_id: str,
+        self, file_path: str, processed: Dict[str, Any]
     ) -> Dict[str, Any]:
-        metadata = {
+        """Build metadata for R2 object from processed markdown."""
+        doc_id = self.markdown_processor.calculate_document_id(file_path)
+        return {
             "document_id": doc_id,
             "title": processed.get("title"),
             "source_path": file_path,
-            "commit_sha": commit_info.get("commit_sha"),
-            "commit_date": commit_info.get("commit_date"),
             "char_count": processed.get("char_count"),
-            "estimated_tokens": processed.get("estimated_tokens"),
-            "needs_chunking": processed.get("needs_chunking", False),
+            "frontmatter": processed.get("frontmatter", {}),
         }
-        frontmatter = processed.get("frontmatter")
-        if frontmatter:
-            metadata["frontmatter"] = frontmatter
-        return metadata
-
-    def _upload_document(
-        self,
-        file_path: str,
-        processed: Dict[str, Any],
-        commit_info: Dict[str, str],
-        doc_id: str,
-    ) -> Dict[str, Any]:
-        metadata = self._build_metadata(file_path, processed, commit_info, doc_id)
-        return self.r2_service.upload_document(
-            relative_path=file_path,
-            body=processed.get("content", ""),
-            metadata=metadata,
-        )
-
-    def _delete_document(self, file_path: str) -> Dict[str, Any]:
-        return self.r2_service.delete_document(relative_path=file_path)
 
     def sync(self) -> Dict[str, Any]:
-        """Execute incremental synchronization to Cloudflare R2."""
-        self.logger.info("Starting Cloudflare R2 sync")
+        """Execute a full, ETag-based synchronization to Cloudflare R2."""
+        self.logger.info("Starting Cloudflare R2 sync using ETag comparison")
 
         try:
-            self.git_watcher.pull_updates()
-            current_commit = self.git_watcher.get_current_commit()
+            remote_etags = self._get_r2_etags()
+            local_files = self._get_local_markdown_files()
 
-            if not self.git_watcher.has_changes(self._last_commit, current_commit):
-                self.logger.info("No markdown changes detected")
-                return {
-                    "status": "success",
-                    "changes_detected": False,
-                    "uploaded": 0,
-                    "deleted": 0,
-                    "renamed": 0,
-                    "processed_files": [],
-                    "deleted_files": [],
-                    "renamed_files": [],
-                    "failed_files": [],
-                }
-
-            added, modified, deleted, renamed = self.git_watcher.get_changed_files(
-                self._last_commit, current_commit
-            )
-
-            processed_files: List[Dict[str, Any]] = []
+            uploaded_files: List[Dict[str, Any]] = []
+            skipped_files: List[str] = []
             deleted_files: List[Dict[str, Any]] = []
             failed_files: List[str] = []
 
-            def _handle_upload(file_path: str) -> None:
+            remote_keys = set(remote_etags.keys())
+            processed_local_keys = set()
+
+            # Process and upload local files
+            for file_path in local_files:
+                object_key = self.r2_service.build_object_key(file_path)
+                processed_local_keys.add(object_key)
+
                 try:
-                    content = self.git_watcher.get_file_content(file_path)
-                    processed = self.markdown_processor.process_markdown(
-                        content, file_path
-                    )
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        raw_content = f.read()
 
-                    if not processed.get("is_valid", False) and not processed.get(
-                        "needs_chunking", False
-                    ):
-                        raise ValueError(
-                            processed.get(
-                                "validation_error", "Invalid markdown content"
-                            )
-                        )
-
-                    commit_info = self.git_watcher.get_file_commit_info(file_path)
-                    doc_id = self.markdown_processor.calculate_document_id(file_path)
-                    upload_result = self._upload_document(
-                        file_path, processed, commit_info, doc_id
+                    processed = self.markdown_processor.process_markdown_for_r2(
+                        raw_content, os.path.basename(file_path)
                     )
-                    processed_files.append(
+                    content = processed["content"]
+                    local_etag = self._calculate_md5(content)
+
+                    if remote_etags.get(object_key) == local_etag:
+                        self.logger.debug("ETag match, skipping upload", file=file_path)
+                        skipped_files.append(file_path)
+                        continue
+
+                    self.logger.info("Uploading modified file", file=file_path)
+                    metadata = self._build_metadata(file_path, processed)
+                    upload_result = self.r2_service.upload_document(
+                        key=object_key, body=content, metadata=metadata
+                    )
+                    uploaded_files.append(
                         {
                             "file": file_path,
-                            "doc_id": doc_id,
                             "title": processed.get("title"),
                             "r2": upload_result,
                         }
                     )
+
                 except Exception as error:
                     self.logger.error(
-                        "Failed to upload document to Cloudflare R2",
+                        "Failed to process or upload file",
                         file=file_path,
                         error=str(error),
                     )
                     failed_files.append(file_path)
 
-            def _handle_delete(file_path: str) -> None:
+            # Delete remote files that are no longer present locally
+            files_to_delete = remote_keys - processed_local_keys
+            for key_to_delete in files_to_delete:
                 try:
-                    delete_result = self._delete_document(file_path)
+                    self.logger.info("Deleting remote file", key=key_to_delete)
+                    delete_result = self.r2_service.delete_document(key=key_to_delete)
                     deleted_files.append(
-                        {"file": file_path, "r2": delete_result, "status": "success"}
+                        {"key": key_to_delete, "r2": delete_result, "status": "success"}
                     )
                 except Exception as error:
                     self.logger.error(
-                        "Failed to delete document from Cloudflare R2",
-                        file=file_path,
+                        "Failed to delete document from R2",
+                        key=key_to_delete,
                         error=str(error),
                     )
-                    failed_files.append(file_path)
-
-            for file_path in added + modified:
-                if file_path.endswith(".md"):
-                    _handle_upload(file_path)
-
-            for file_path in deleted:
-                if file_path.endswith(".md"):
-                    _handle_delete(file_path)
-
-            renamed_processed: List[Tuple[str, str]] = []
-            for old_path, new_path in renamed:
-                if old_path and old_path.endswith(".md"):
-                    _handle_delete(old_path)
-                if new_path and new_path.endswith(".md"):
-                    _handle_upload(new_path)
-                    renamed_processed.append((old_path, new_path))
+                    failed_files.append(key_to_delete)
 
             status = "success" if not failed_files else "partial_success"
-            self._last_commit = current_commit
-
             self.logger.info(
                 "Cloudflare R2 sync completed",
                 status=status,
-                uploaded=len(processed_files),
+                uploaded=len(uploaded_files),
+                skipped=len(skipped_files),
                 deleted=len(deleted_files),
-                renamed=len(renamed_processed),
                 failed=len(failed_files),
             )
 
             return {
                 "status": status,
-                "changes_detected": True,
-                "uploaded": len(processed_files),
+                "uploaded": len(uploaded_files),
+                "skipped": len(skipped_files),
                 "deleted": len(deleted_files),
-                "renamed": len(renamed_processed),
-                "processed_files": processed_files,
+                "failed": len(failed_files),
+                "uploaded_files": uploaded_files,
                 "deleted_files": deleted_files,
-                "renamed_files": renamed_processed,
                 "failed_files": failed_files,
             }
 
         except Exception as error:
             self.logger.error("Cloudflare R2 sync operation failed", error=str(error))
             raise CloudflareR2SyncError(str(error)) from error
+
+    def _get_local_markdown_files(self) -> List[str]:
+        """Find all markdown files in the configured repository cache directory."""
+        markdown_files = []
+        for root, _, files in os.walk(self.config.repo_cache_dir):
+            for file in files:
+                if file.endswith(".md"):
+                    full_path = os.path.join(root, file)
+                    markdown_files.append(full_path)
+        self.logger.info("Found local markdown files", count=len(markdown_files))
+        return markdown_files

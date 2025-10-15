@@ -250,6 +250,58 @@ class CloudflareR2Service:
             "version_id": response.get("VersionId"),
         }
 
+    def list_all_documents(self) -> Dict[str, str]:
+        """List all documents in the R2 bucket, returning a map of key to ETag."""
+        self.logger.debug("Listing all documents in R2 bucket")
+        all_objects: Dict[str, str] = {}
+        continuation_token = None
+
+        while True:
+            try:
+                args = {"Bucket": self.bucket}
+                if self.key_prefix:
+                    args["Prefix"] = self.key_prefix
+                if continuation_token:
+                    args["ContinuationToken"] = continuation_token
+
+                response = self._s3.list_objects_v2(**args)
+                for obj in response.get("Contents", []):
+                    key = obj.get("Key")
+                    etag = (obj.get("ETag") or "").strip('"')
+                    if key:
+                        all_objects[key] = etag
+
+                if not response.get("IsTruncated"):
+                    break
+                continuation_token = response.get("NextContinuationToken")
+
+            except ClientError as error:
+                self.logger.error("Failed to list objects from R2", error=str(error))
+                raise
+
+        self.logger.info("Finished listing documents", count=len(all_objects))
+        return all_objects
+
+    def get_document_head(self, *, key: str) -> Optional[Dict[str, Any]]:
+        """Retrieve metadata for a document in R2."""
+        try:
+            response = self._execute_with_retry(
+                lambda: self._s3.head_object(Bucket=self.bucket, Key=key),
+                action="head",
+                key=key,
+            )
+            # ETag from head_object is double-quoted, remove them.
+            if "ETag" in response:
+                response["ETag"] = response["ETag"].strip('"')
+            return response
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "404":
+                return None  # Object not found
+            self.logger.error(
+                "Failed to get document metadata from R2", key=key, error=str(e)
+            )
+            raise
+
     def build_object_key(self, relative_path: str) -> str:
         """Public helper for building object keys."""
         return self._build_object_key(relative_path)

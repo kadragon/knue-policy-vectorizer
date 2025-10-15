@@ -1088,6 +1088,38 @@ class MarkdownProcessor:
             )
             raise
 
+    def process_markdown_for_r2(
+        self, raw_content: str, filename: str
+    ) -> Dict[str, Any]:
+        """Lightweight markdown processing for R2 sync, no token counting or chunking.
+
+        Args:
+            raw_content: Raw markdown content.
+            filename: Original filename.
+
+        Returns:
+            Dictionary with cleaned content, title, and frontmatter.
+        """
+        self.logger.debug("Processing markdown for R2", filename=filename)
+        try:
+            content_no_frontmatter, frontmatter_metadata = self.remove_frontmatter(
+                raw_content, return_metadata=True
+            )
+            title = self.extract_title(content_no_frontmatter, filename)
+            clean_content = self.clean_content(content_no_frontmatter)
+
+            return {
+                "content": clean_content,
+                "title": title,
+                "frontmatter": frontmatter_metadata,
+                "char_count": len(clean_content),
+            }
+        except Exception as e:
+            self.logger.error(
+                "Failed to process markdown for R2", filename=filename, error=str(e)
+            )
+            raise
+
     def create_document_for_vectorization(
         self,
         processed_content: Dict[str, Any],
