@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Tuple
 from git import InvalidGitRepositoryError, Repo
 from git.exc import GitCommandError
 
-from logger import setup_logger
+from src.utils.logger import setup_logger
 
 
 class GitWatcher:

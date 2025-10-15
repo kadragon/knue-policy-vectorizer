@@ -14,7 +14,7 @@ class TestCloudflareR2Service:
     """Validate CloudflareR2Service behavior."""
 
     def _service(self, **overrides):
-        from cloudflare_r2_service import CloudflareR2Service
+        from src.services.cloudflare_r2_service import CloudflareR2Service
 
         config = {
             "bucket": "knue-vectorstore",
@@ -31,7 +31,7 @@ class TestCloudflareR2Service:
         return service, mock_client
 
     def test_upload_document_serializes_metadata(self):
-        from cloudflare_r2_service import DEFAULT_CONTENT_TYPE
+        from src.services.cloudflare_r2_service import DEFAULT_CONTENT_TYPE
 
         service, mock_client = self._service()
 
@@ -97,7 +97,7 @@ class TestCloudflareR2Service:
         assert mock_client.put_object.call_count == 3
 
     def test_missing_bucket_raises(self):
-        from cloudflare_r2_service import CloudflareR2Service
+        from src.services.cloudflare_r2_service import CloudflareR2Service
 
         with pytest.raises(ValueError):
             CloudflareR2Service(

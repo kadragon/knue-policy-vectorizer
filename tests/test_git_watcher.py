@@ -38,7 +38,7 @@ class TestGitWatcher:
     """Test Git repository watcher functionality."""
 
     def test_git_watcher_initialization(self, watcher_config):
-        from git_watcher import GitWatcher
+        from src.core.git_watcher import GitWatcher
 
         watcher = GitWatcher(watcher_config)
         assert watcher.repo_url == watcher_config["repo_url"]
@@ -46,7 +46,7 @@ class TestGitWatcher:
         assert str(watcher.cache_dir) == watcher_config["cache_dir"]
 
     def test_git_watcher_clone_repository(self, watcher_config):
-        from git_watcher import GitWatcher
+        from src.core.git_watcher import GitWatcher
 
         watcher = GitWatcher(watcher_config)
 
@@ -68,7 +68,7 @@ class TestGitWatcher:
             assert result == mock_repo
 
     def test_git_watcher_pull_updates(self, watcher_config):
-        from git_watcher import GitWatcher
+        from src.core.git_watcher import GitWatcher
 
         watcher = GitWatcher(watcher_config)
 
@@ -82,7 +82,7 @@ class TestGitWatcher:
         mock_origin.pull.assert_called_once()
 
     def test_git_watcher_get_current_commit(self, watcher_config):
-        from git_watcher import GitWatcher
+        from src.core.git_watcher import GitWatcher
 
         watcher = GitWatcher(watcher_config)
 
@@ -95,7 +95,7 @@ class TestGitWatcher:
         assert commit == test_commit
 
     def test_git_watcher_has_changes(self, watcher_config):
-        from git_watcher import GitWatcher
+        from src.core.git_watcher import GitWatcher
 
         watcher = GitWatcher(watcher_config)
 
@@ -111,7 +111,7 @@ class TestGitWatcher:
     def test_git_watcher_get_markdown_files(self, watcher_config, tmp_path):
         from unittest.mock import Mock
 
-        from git_watcher import GitWatcher
+        from src.core.git_watcher import GitWatcher
 
         # Prepare a realistic repo cache directory structure
         cache_dir = Path(watcher_config["cache_dir"])
@@ -132,7 +132,7 @@ class TestGitWatcher:
         assert files == expected_files
 
     def test_git_watcher_get_changed_files(self, watcher_config):
-        from git_watcher import GitWatcher
+        from src.core.git_watcher import GitWatcher
 
         watcher = GitWatcher(watcher_config)
 
@@ -161,7 +161,7 @@ class TestGitWatcher:
         assert renamed == []
 
     def test_git_watcher_get_file_commit_info(self, watcher_config):
-        from git_watcher import GitWatcher
+        from src.core.git_watcher import GitWatcher
 
         watcher = GitWatcher(watcher_config)
 
@@ -181,7 +181,7 @@ class TestGitWatcher:
 
     def test_git_watcher_get_changed_files_with_renames(self, watcher_config):
         """Test handling of renamed files."""
-        from git_watcher import GitWatcher
+        from src.core.git_watcher import GitWatcher
 
         watcher = GitWatcher(watcher_config)
 
@@ -215,7 +215,7 @@ class TestGitWatcher:
 
     def test_git_watcher_get_changed_files_with_type_changes(self, watcher_config):
         """Test handling of type changed files."""
-        from git_watcher import GitWatcher
+        from src.core.git_watcher import GitWatcher
 
         watcher = GitWatcher(watcher_config)
 
@@ -247,7 +247,7 @@ class TestGitWatcher:
 
     def test_git_watcher_get_changed_files_rename_edge_cases(self, watcher_config):
         """Test edge cases for rename handling."""
-        from git_watcher import GitWatcher
+        from src.core.git_watcher import GitWatcher
 
         watcher = GitWatcher(watcher_config)
 
@@ -303,7 +303,7 @@ class TestGitWatcherIntegration:
     def test_git_watcher_real_operations(self, temp_git_repo):
         temp_dir, repo = temp_git_repo
 
-        from git_watcher import GitWatcher
+        from src.core.git_watcher import GitWatcher
 
         branch_name = repo.active_branch.name
 
@@ -324,7 +324,7 @@ class TestGitWatcherIntegration:
         # This test will be skipped in CI/CD but can be run manually
         pytest.skip("Manual integration test - requires network access")
 
-        from git_watcher import GitWatcher
+        from src.core.git_watcher import GitWatcher
 
         config = {
             "repo_url": "https://github.com/kadragon/KNUE-Policy-Hub.git",
@@ -387,7 +387,7 @@ class TestGitWatcherDetails:
     def _make_watcher(
         self, tmp_path, repo_url="https://example.com/repo.git", branch="main"
     ):
-        from git_watcher import GitWatcher
+        from src.core.git_watcher import GitWatcher
 
         cache_dir = tmp_path / "cache"
         config = {

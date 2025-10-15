@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 import pytest
 
-from src.config import Config
-from src.providers import (
+from src.config.config import Config
+from src.utils.providers import (
     EmbeddingProvider,
     ProviderConfig,
     ProviderFactory,

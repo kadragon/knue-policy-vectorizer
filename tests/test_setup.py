@@ -74,7 +74,7 @@ def test_logger_setup():
 
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-    from logger import setup_logger
+    from src.utils.logger import setup_logger
 
     logger = setup_logger("INFO", "test-logger")
     assert logger is not None

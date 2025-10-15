@@ -11,13 +11,8 @@ import frontmatter
 import requests
 from bs4 import BeautifulSoup
 
-from logger import setup_logger
-
-# Support both package and standalone imports
-try:
-    from .crypto_utils import CryptoUtils
-except Exception:  # pragma: no cover - fallback when imported as a script
-    from crypto_utils import CryptoUtils  # type: ignore
+from src.utils.crypto_utils import CryptoUtils
+from src.utils.logger import setup_logger
 
 
 class MarkdownProcessor:

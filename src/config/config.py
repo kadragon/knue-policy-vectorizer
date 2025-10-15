@@ -6,10 +6,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from dotenv import load_dotenv
 
-try:
-    from .providers import EmbeddingProvider, ProviderConfig, VectorProvider
-except ImportError:
-    from providers import EmbeddingProvider, ProviderConfig, VectorProvider
+from src.utils.providers import EmbeddingProvider, ProviderConfig, VectorProvider
 
 load_dotenv()
 

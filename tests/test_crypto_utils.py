@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.crypto_utils import CryptoUtils
+from src.utils.crypto_utils import CryptoUtils
 
 
 def test_data_integrity_hash():

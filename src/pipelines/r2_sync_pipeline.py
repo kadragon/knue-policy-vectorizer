@@ -10,15 +10,22 @@ import structlog
 
 # Support both package and standalone imports
 try:
-    from .cloudflare_r2_service import CloudflareR2Service
-    from .config import Config
-    from .logger import setup_logger
-    from .markdown_processor import MarkdownProcessor
+    from src.config.config import Config
+    from src.services.cloudflare_r2_service import CloudflareR2Service
+    from src.utils.logger import setup_logger
+    from src.utils.markdown_processor import MarkdownProcessor
 except ImportError:  # pragma: no cover
-    from cloudflare_r2_service import CloudflareR2Service  # type: ignore
-    from config import Config  # type: ignore
-    from logger import setup_logger  # type: ignore
-    from markdown_processor import MarkdownProcessor  # type: ignore
+    import sys
+    from pathlib import Path
+
+    project_root = Path(__file__).resolve().parents[2]
+    if str(project_root) not in sys.path:
+        sys.path.append(str(project_root))
+
+    from src.config.config import Config  # type: ignore
+    from src.services.cloudflare_r2_service import CloudflareR2Service  # type: ignore
+    from src.utils.logger import setup_logger  # type: ignore
+    from src.utils.markdown_processor import MarkdownProcessor  # type: ignore
 
 logger = structlog.get_logger(__name__)
 
@@ -163,12 +170,16 @@ class CloudflareR2SyncPipeline:
                 failed=len(failed_files),
             )
 
+            changes_detected = bool(uploaded_files or deleted_files)
+
             return {
                 "status": status,
                 "uploaded": len(uploaded_files),
                 "skipped": len(skipped_files),
                 "deleted": len(deleted_files),
                 "failed": len(failed_files),
+                "changes_detected": changes_detected,
+                "renamed": 0,
                 "uploaded_files": uploaded_files,
                 "deleted_files": deleted_files,
                 "failed_files": failed_files,

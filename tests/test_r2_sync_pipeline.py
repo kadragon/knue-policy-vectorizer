@@ -9,8 +9,8 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from config import Config
-from r2_sync_pipeline import CloudflareR2SyncPipeline
+from src.config.config import Config
+from src.pipelines.r2_sync_pipeline import CloudflareR2SyncPipeline
 
 
 @pytest.fixture
@@ -28,8 +28,8 @@ def calculate_md5(content):
 class TestCloudflareR2SyncPipeline:
     """Validate CloudflareR2SyncPipeline behaviour with ETag-based logic."""
 
-    @patch("r2_sync_pipeline.CloudflareR2Service")
-    @patch("r2_sync_pipeline.MarkdownProcessor")
+    @patch("src.pipelines.r2_sync_pipeline.CloudflareR2Service")
+    @patch("src.pipelines.r2_sync_pipeline.MarkdownProcessor")
     @patch("os.walk")
     @patch("builtins.open")
     def test_sync_new_and_modified_files(
@@ -78,8 +78,8 @@ class TestCloudflareR2SyncPipeline:
         assert result["deleted"] == 0
         assert mock_r2.upload_document.call_count == 2
 
-    @patch("r2_sync_pipeline.CloudflareR2Service")
-    @patch("r2_sync_pipeline.MarkdownProcessor")
+    @patch("src.pipelines.r2_sync_pipeline.CloudflareR2Service")
+    @patch("src.pipelines.r2_sync_pipeline.MarkdownProcessor")
     @patch("os.walk")
     @patch("builtins.open")
     def test_sync_deletes_stale_files(
@@ -120,8 +120,8 @@ class TestCloudflareR2SyncPipeline:
         assert result["deleted_files"][0]["key"] == "prefix/stale.md"
         mock_r2.delete_document.assert_called_once_with(key="prefix/stale.md")
 
-    @patch("r2_sync_pipeline.CloudflareR2Service")
-    @patch("r2_sync_pipeline.MarkdownProcessor")
+    @patch("src.pipelines.r2_sync_pipeline.CloudflareR2Service")
+    @patch("src.pipelines.r2_sync_pipeline.MarkdownProcessor")
     @patch("os.walk")
     @patch("builtins.open")
     def test_sync_no_changes(
@@ -161,8 +161,8 @@ class TestCloudflareR2SyncPipeline:
         mock_r2.upload_document.assert_not_called()
         mock_r2.delete_document.assert_not_called()
 
-    @patch("r2_sync_pipeline.CloudflareR2Service")
-    @patch("r2_sync_pipeline.MarkdownProcessor")
+    @patch("src.pipelines.r2_sync_pipeline.CloudflareR2Service")
+    @patch("src.pipelines.r2_sync_pipeline.MarkdownProcessor")
     @patch("os.walk")
     @patch("builtins.open")
     def test_sync_partial_failure(
@@ -198,8 +198,8 @@ class TestCloudflareR2SyncPipeline:
         assert result["failed"] == 1
         assert result["failed_files"] == ["new.md"]
 
-    @patch("r2_sync_pipeline.CloudflareR2Service")
-    @patch("r2_sync_pipeline.MarkdownProcessor")
+    @patch("src.pipelines.r2_sync_pipeline.CloudflareR2Service")
+    @patch("src.pipelines.r2_sync_pipeline.MarkdownProcessor")
     @patch("os.walk")
     def test_get_local_markdown_files_excludes_readme(
         self, mock_os_walk, mock_md_cls, mock_r2_cls, mock_config

@@ -7,13 +7,13 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from src.providers import VectorServiceInterface
-from src.qdrant_service_cloud import (
+from src.services.qdrant_service_cloud import (
     QdrantCloudAuthenticationError,
     QdrantCloudConnectionError,
     QdrantCloudError,
     QdrantCloudService,
 )
+from src.utils.providers import VectorServiceInterface
 
 
 class TestQdrantCloudService:
@@ -21,7 +21,7 @@ class TestQdrantCloudService:
 
     def test_service_implements_interface(self):
         """Test that QdrantCloudService implements VectorServiceInterface"""
-        with patch("src.qdrant_service_cloud.QdrantClient"):
+        with patch("src.services.qdrant_service_cloud.QdrantClient"):
             service = QdrantCloudService(
                 url="https://test.qdrant.tech", api_key="test-key"
             )
@@ -29,7 +29,7 @@ class TestQdrantCloudService:
 
     def test_service_initialization(self):
         """Test service initialization with different parameters"""
-        with patch("src.qdrant_service_cloud.QdrantClient") as mock_client:
+        with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
             mock_client.return_value = mock_instance
 
@@ -55,7 +55,7 @@ class TestQdrantCloudService:
 
     def test_client_initialization_with_authentication(self):
         """Test Qdrant client initialization with API key authentication"""
-        with patch("src.qdrant_service_cloud.QdrantClient") as mock_client:
+        with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
             mock_client.return_value = mock_instance
 
@@ -72,7 +72,7 @@ class TestQdrantCloudService:
 
     def test_create_collection_success(self):
         """Test successful collection creation"""
-        with patch("src.qdrant_service_cloud.QdrantClient") as mock_client:
+        with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
             mock_instance.create_collection.return_value = True
             mock_client.return_value = mock_instance
@@ -95,7 +95,7 @@ class TestQdrantCloudService:
 
     def test_delete_collection_success(self):
         """Test successful collection deletion"""
-        with patch("src.qdrant_service_cloud.QdrantClient") as mock_client:
+        with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
             mock_instance.delete_collection.return_value = True
             mock_client.return_value = mock_instance
@@ -110,7 +110,7 @@ class TestQdrantCloudService:
 
     def test_collection_exists_true(self):
         """Test collection existence check - collection exists"""
-        with patch("src.qdrant_service_cloud.QdrantClient") as mock_client:
+        with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
             mock_collection_info = Mock()
             mock_instance.get_collection.return_value = mock_collection_info
@@ -126,7 +126,7 @@ class TestQdrantCloudService:
 
     def test_collection_exists_false(self):
         """Test collection existence check - collection doesn't exist"""
-        with patch("src.qdrant_service_cloud.QdrantClient") as mock_client:
+        with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
             from qdrant_client.http.exceptions import UnexpectedResponse
 
@@ -148,7 +148,7 @@ class TestQdrantCloudService:
 
     def test_upsert_points_success(self):
         """Test successful point upsertion"""
-        with patch("src.qdrant_service_cloud.QdrantClient") as mock_client:
+        with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
             mock_instance.upsert.return_value = Mock(
                 operation_id=123, status="completed"
@@ -173,7 +173,7 @@ class TestQdrantCloudService:
 
     def test_upsert_points_batch_chunking(self):
         """Test batch upsertion with automatic chunking"""
-        with patch("src.qdrant_service_cloud.QdrantClient") as mock_client:
+        with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
             mock_instance.upsert.return_value = Mock(
                 operation_id=123, status="completed"
@@ -200,7 +200,7 @@ class TestQdrantCloudService:
 
     def test_delete_points_success(self):
         """Test successful point deletion"""
-        with patch("src.qdrant_service_cloud.QdrantClient") as mock_client:
+        with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
             mock_instance.delete.return_value = Mock(
                 operation_id=123, status="completed"
@@ -218,7 +218,7 @@ class TestQdrantCloudService:
 
     def test_search_points_success(self):
         """Test successful point search"""
-        with patch("src.qdrant_service_cloud.QdrantClient") as mock_client:
+        with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
 
             # Mock search results
@@ -250,7 +250,7 @@ class TestQdrantCloudService:
 
     def test_health_check_success(self):
         """Test successful health check"""
-        with patch("src.qdrant_service_cloud.QdrantClient") as mock_client:
+        with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
             mock_instance.get_collections.return_value = Mock(collections=[])
             mock_client.return_value = mock_instance
@@ -265,7 +265,7 @@ class TestQdrantCloudService:
 
     def test_health_check_failure(self):
         """Test health check failure"""
-        with patch("src.qdrant_service_cloud.QdrantClient") as mock_client:
+        with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
             mock_instance.get_collections.side_effect = Exception("Connection failed")
             mock_client.return_value = mock_instance
@@ -279,7 +279,7 @@ class TestQdrantCloudService:
 
     def test_authentication_error_handling(self):
         """Test handling of authentication errors"""
-        with patch("src.qdrant_service_cloud.QdrantClient") as mock_client:
+        with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
             from qdrant_client.http.exceptions import UnexpectedResponse
 
@@ -303,7 +303,7 @@ class TestQdrantCloudService:
 
     def test_connection_error_handling(self):
         """Test handling of connection errors"""
-        with patch("src.qdrant_service_cloud.QdrantClient") as mock_client:
+        with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
             from qdrant_client.http.exceptions import ResponseHandlingException
 
@@ -320,7 +320,7 @@ class TestQdrantCloudService:
 
     def test_generic_qdrant_error_handling(self):
         """Test handling of generic Qdrant errors"""
-        with patch("src.qdrant_service_cloud.QdrantClient") as mock_client:
+        with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
             from qdrant_client.http.exceptions import UnexpectedResponse
 
@@ -342,7 +342,7 @@ class TestQdrantCloudService:
 
     def test_invalid_url_handling(self):
         """Test handling of invalid URLs"""
-        with patch("src.qdrant_service_cloud.QdrantClient"):
+        with patch("src.services.qdrant_service_cloud.QdrantClient"):
             with pytest.raises(ValueError, match="Qdrant Cloud requires HTTPS"):
                 QdrantCloudService(
                     url="http://test.qdrant.tech",  # Should be HTTPS for cloud
@@ -356,7 +356,7 @@ class TestQdrantCloudService:
 
     def test_get_collection_info(self):
         """Test getting collection information"""
-        with patch("src.qdrant_service_cloud.QdrantClient") as mock_client:
+        with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
             mock_collection_info = Mock()
             mock_collection_info.config.params.vectors.size = 1024
@@ -388,7 +388,7 @@ class TestQdrantCloudService:
 
     def test_prefer_grpc_configuration(self):
         """Test gRPC preference configuration"""
-        with patch("src.qdrant_service_cloud.QdrantClient") as mock_client:
+        with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             service = QdrantCloudService(
                 url="https://test.qdrant.tech", api_key="test-key", prefer_grpc=True
             )
@@ -402,7 +402,7 @@ class TestQdrantCloudService:
 
     def test_point_validation(self):
         """Test point data validation"""
-        with patch("src.qdrant_service_cloud.QdrantClient") as mock_client:
+        with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
             mock_client.return_value = mock_instance
 
@@ -419,13 +419,13 @@ class TestQdrantCloudService:
     def test_url_validation(self):
         """Test URL validation for cloud service"""
         # Valid HTTPS URLs should work
-        with patch("src.qdrant_service_cloud.QdrantClient"):
+        with patch("src.services.qdrant_service_cloud.QdrantClient"):
             service = QdrantCloudService(
                 url="https://test.qdrant.tech", api_key="test-key"
             )
             assert service.url == "https://test.qdrant.tech"
 
         # HTTP URLs should be rejected for cloud service
-        with patch("src.qdrant_service_cloud.QdrantClient"):
+        with patch("src.services.qdrant_service_cloud.QdrantClient"):
             with pytest.raises(ValueError, match="Qdrant Cloud requires HTTPS"):
                 QdrantCloudService(url="http://test.qdrant.tech", api_key="test-key")

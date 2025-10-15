@@ -11,53 +11,66 @@ import structlog
 
 # Support both package and standalone imports
 try:
-    from .config import Config
-    from .config_manager import ConfigProfile, ConfigTemplate, ConfigurationManager
-    from .embedding_service_openai import OpenAIEmbeddingService
-    from .git_watcher import GitWatcher
-    from .knue_board_ingestor import KnueBoardIngestor
-    from .logger import setup_logger
-    from .markdown_processor import MarkdownProcessor
-    from .migration_tools import MigrationManager, create_migration_config
-    from .providers import (
-        EmbeddingProvider,
-        ProviderFactory,
-        VectorProvider,
-        get_available_embedding_providers,
-        get_available_vector_providers,
-    )
-    from .qdrant_service import QdrantService
-    from .r2_sync_pipeline import (
-        CloudflareR2SyncError,
-        CloudflareR2SyncPipeline,
-    )
-except ImportError:  # pragma: no cover - fallback when executed as script
-    from config import Config  # type: ignore
-    from config_manager import (  # type: ignore
+    from src.config.config import Config
+    from src.config.config_manager import (
         ConfigProfile,
         ConfigTemplate,
         ConfigurationManager,
     )
-    from embedding_service_openai import OpenAIEmbeddingService  # type: ignore
-    from git_watcher import GitWatcher  # type: ignore
-    from knue_board_ingestor import KnueBoardIngestor  # type: ignore
-    from logger import setup_logger  # type: ignore
-    from markdown_processor import MarkdownProcessor  # type: ignore
-    from migration_tools import (  # type: ignore
-        MigrationManager,
-        create_migration_config,
+    from src.core.git_watcher import GitWatcher
+    from src.core.migration_tools import MigrationManager, create_migration_config
+    from src.pipelines.r2_sync_pipeline import (
+        CloudflareR2SyncError,
+        CloudflareR2SyncPipeline,
     )
-    from providers import (  # type: ignore
+    from src.services.embedding_service_openai import OpenAIEmbeddingService
+    from src.services.knue_board_ingestor import KnueBoardIngestor
+    from src.services.qdrant_service import QdrantService
+    from src.utils.logger import setup_logger
+    from src.utils.markdown_processor import MarkdownProcessor
+    from src.utils.providers import (
         EmbeddingProvider,
         ProviderFactory,
         VectorProvider,
         get_available_embedding_providers,
         get_available_vector_providers,
     )
-    from qdrant_service import QdrantService  # type: ignore
-    from r2_sync_pipeline import (  # type: ignore
+except ImportError:  # pragma: no cover - fallback when executed as script
+    import sys
+    from pathlib import Path
+
+    project_root = Path(__file__).resolve().parents[2]
+    if str(project_root) not in sys.path:
+        sys.path.append(str(project_root))
+
+    from src.config.config import Config  # type: ignore
+    from src.config.config_manager import (  # type: ignore
+        ConfigProfile,
+        ConfigTemplate,
+        ConfigurationManager,
+    )
+    from src.core.git_watcher import GitWatcher  # type: ignore
+    from src.core.migration_tools import (  # type: ignore
+        MigrationManager,
+        create_migration_config,
+    )
+    from src.pipelines.r2_sync_pipeline import (  # type: ignore
         CloudflareR2SyncError,
         CloudflareR2SyncPipeline,
+    )
+    from src.services.embedding_service_openai import (
+        OpenAIEmbeddingService,  # type: ignore
+    )
+    from src.services.knue_board_ingestor import KnueBoardIngestor  # type: ignore
+    from src.services.qdrant_service import QdrantService  # type: ignore
+    from src.utils.logger import setup_logger  # type: ignore
+    from src.utils.markdown_processor import MarkdownProcessor  # type: ignore
+    from src.utils.providers import (  # type: ignore
+        EmbeddingProvider,
+        ProviderFactory,
+        VectorProvider,
+        get_available_embedding_providers,
+        get_available_vector_providers,
     )
 
 logger = structlog.get_logger(__name__)
@@ -1632,6 +1645,9 @@ def sync(
                 click.echo(f"❌ Failed files: {', '.join(result['failed_files'])}")
         else:
             click.echo("📋 No changes detected")
+
+        if result["status"] != "success":
+            raise click.ClickException("Sync finished with errors")
 
     except SyncError as e:
         click.echo(f"❌ Sync failed: {e}")

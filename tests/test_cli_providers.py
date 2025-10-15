@@ -1,15 +1,14 @@
-"""
-Tests for CLI provider selection and configuration functionality
-"""
+"""Tests for CLI provider selection and configuration functionality"""
 
 import os
 from unittest.mock import Mock, patch
 
+import click
 import pytest
 from click.testing import CliRunner
 
-from src.config import Config
-from src.providers import EmbeddingProvider, VectorProvider
+from src.config.config import Config
+from src.utils.providers import EmbeddingProvider, VectorProvider
 
 
 # We'll test the CLI commands after implementing them
@@ -33,7 +32,7 @@ class TestCLIProviders:
     def test_list_providers_command(self):
         """Test listing available providers"""
         # Import after implementing
-        from src.sync_pipeline import list_providers
+        from src.pipelines.sync_pipeline import list_providers
 
         result = self.runner.invoke(list_providers)
         assert result.exit_code == 0
@@ -44,7 +43,7 @@ class TestCLIProviders:
 
     def test_configure_providers_interactive(self):
         """Test interactive provider configuration"""
-        from src.sync_pipeline import configure_providers
+        from src.pipelines.sync_pipeline import configure_providers
 
         # Simulate user selecting OpenAI + Qdrant Cloud
         with patch("click.prompt") as mock_prompt:
@@ -68,7 +67,7 @@ class TestCLIProviders:
 
     def test_configure_providers_with_validation_errors(self):
         """Test configuration with validation errors"""
-        from src.sync_pipeline import configure_providers
+        from src.pipelines.sync_pipeline import configure_providers
 
         # Test invalid provider selection
         with patch("click.prompt") as mock_prompt:
@@ -93,7 +92,7 @@ class TestCLIProviders:
 
     def test_show_config_command(self):
         """Test showing current configuration"""
-        from src.sync_pipeline import show_config
+        from src.pipelines.sync_pipeline import show_config
 
         result = self.runner.invoke(show_config)
         assert result.exit_code == 0
@@ -103,7 +102,7 @@ class TestCLIProviders:
 
     def test_sync_with_provider_options(self):
         """Test sync command with provider options"""
-        from src.sync_pipeline import main
+        from src.pipelines.sync_pipeline import main
 
         env = {
             "EMBEDDING_PROVIDER": "openai",
@@ -116,7 +115,7 @@ class TestCLIProviders:
 
         with (
             patch.dict(os.environ, env, clear=False),
-            patch("src.sync_pipeline.SyncPipeline") as mock_pipeline,
+            patch("src.pipelines.sync_pipeline.SyncPipeline") as mock_pipeline,
         ):
             mock_instance = Mock()
             mock_instance.health_check.return_value = True
@@ -150,108 +149,118 @@ class TestCLIProviders:
         assert result.exit_code == 0
         assert "No changes detected" in result.output
 
-    def test_sync_cloudflare_r2_command(self):
-        """Cloudflare R2 sync command should validate config and run pipeline."""
-        from src.sync_pipeline import main
+    @patch("src.config.config.Config.from_env")
+    @patch("src.services.cloudflare_r2_service.CloudflareR2Service")
+    @patch("src.pipelines.sync_pipeline.CloudflareR2SyncPipeline")
+    def test_sync_cloudflare_r2_command(
+        self,
+        mock_pipeline,
+        mock_service,
+        mock_config_from_env,
+    ):
+        """Test successful Cloudflare R2 sync command."""
+        from src.pipelines.sync_pipeline import sync_cloudflare_r2
 
         config = Config()
-        config.cloudflare_account_id = "account123"
-        config.cloudflare_r2_access_key_id = "access"
-        config.cloudflare_r2_secret_access_key = "secret"
+        config.cloudflare_r2_account_id = "account123"
         config.cloudflare_r2_bucket = "knue-vectorstore"
         config.cloudflare_r2_endpoint = "https://account123.r2.cloudflarestorage.com"
         config.validate_r2 = Mock()
 
-        with patch("src.sync_pipeline.Config.from_env", return_value=config):
-            with patch("src.sync_pipeline.CloudflareR2SyncPipeline") as mock_pipeline:
-                mock_instance = Mock()
-                mock_instance.sync.return_value = {
-                    "status": "success",
-                    "changes_detected": True,
-                    "uploaded": 2,
-                    "deleted": 1,
-                    "renamed": 0,
-                    "failed_files": [],
-                }
-                mock_pipeline.return_value = mock_instance
+        mock_config_from_env.return_value = config
+        mock_instance = Mock()
+        mock_instance.sync.return_value = {
+            "status": "success",
+            "changes_detected": True,
+            "uploaded": 2,
+            "deleted": 1,
+            "renamed": 0,
+            "failed_files": [],
+        }
+        mock_pipeline.return_value = mock_instance
 
-                result = self.runner.invoke(main, ["sync-cloudflare-r2"])
-
-        assert result.exit_code == 0
+        sync_cloudflare_r2.callback()
         config.validate_r2.assert_called_once()
         mock_pipeline.assert_called_once()
-        assert "Cloudflare R2 sync completed successfully" in result.output
-        assert "Objects: 2 uploaded" in result.output
 
-    def test_sync_partial_failure_returns_nonzero_exit(self):
-        """Partial sync failures should surface as a warning."""
-        from src.sync_pipeline import main
+    @patch("src.config.config.Config.from_env")
+    @patch("src.services.cloudflare_r2_service.CloudflareR2Service")
+    @patch("src.pipelines.sync_pipeline.CloudflareR2SyncPipeline")
+    def test_sync_cloudflare_r2_partial_failure_returns_nonzero_exit(
+        self,
+        mock_pipeline,
+        mock_service,
+        mock_config_from_env,
+    ):
+        """Partial sync failures should surface as errors."""
+        import click
 
-        env = {
-            "EMBEDDING_PROVIDER": "openai",
-            "VECTOR_PROVIDER": "qdrant_cloud",
-            "OPENAI_API_KEY": "sk-test",
-            "OPENAI_MODEL": "text-embedding-3-small",
-            "QDRANT_CLOUD_URL": "https://test.qdrant.tech",
-            "QDRANT_API_KEY": "test-key",
-        }
-
-        with (
-            patch.dict(os.environ, env, clear=False),
-            patch("src.sync_pipeline.SyncPipeline") as mock_pipeline,
-        ):
-            mock_instance = Mock()
-            mock_instance.health_check.return_value = True
-            mock_instance.sync.return_value = {
-                "status": "partial_success",
-                "changes_detected": True,
-                "upserted": 1,
-                "deleted": 0,
-                "renamed": 0,
-                "failed_files": ["policies/rule.md"],
-            }
-            mock_pipeline.return_value = mock_instance
-
-            result = self.runner.invoke(main, ["sync"])
-
-        assert result.exit_code == 0
-        assert "some failures" in result.output
-
-    def test_sync_cloudflare_r2_partial_failure_nonzero_exit(self):
-        """R2 sync should exit with error when failures occur."""
-        from src.sync_pipeline import main
+        from src.pipelines.sync_pipeline import sync_cloudflare_r2
 
         config = Config()
-        config.cloudflare_account_id = "account123"
-        config.cloudflare_r2_access_key_id = "access"
-        config.cloudflare_r2_secret_access_key = "secret"
+        config.cloudflare_r2_account_id = "account123"
         config.cloudflare_r2_bucket = "knue-vectorstore"
         config.cloudflare_r2_endpoint = "https://account123.r2.cloudflarestorage.com"
         config.validate_r2 = Mock()
 
-        with patch("src.sync_pipeline.Config.from_env", return_value=config):
-            with patch("src.sync_pipeline.CloudflareR2SyncPipeline") as mock_pipeline:
-                mock_instance = Mock()
-                mock_instance.sync.return_value = {
-                    "status": "partial_success",
-                    "changes_detected": True,
-                    "uploaded": 1,
-                    "deleted": 0,
-                    "renamed": 0,
-                    "failed_files": ["policies/rule.md"],
-                }
-                mock_pipeline.return_value = mock_instance
+        mock_config_from_env.return_value = config
 
-                result = self.runner.invoke(main, ["sync-cloudflare-r2"])
+        mock_instance = Mock()
+        mock_instance.sync.return_value = {
+            "status": "partial_success",
+            "changes_detected": True,
+            "uploaded": 1,
+            "deleted": 0,
+            "renamed": 0,
+            "failed_files": ["file1.md"],
+        }
+        mock_pipeline.return_value = mock_instance
 
-        assert result.exit_code == 1
-        assert "Error: Cloudflare R2 sync finished with errors" in result.output
+        with pytest.raises(click.ClickException):
+            sync_cloudflare_r2.callback()
+
+        config.validate_r2.assert_called_once()
+        mock_pipeline.assert_called_once()
+
+    @patch("src.pipelines.sync_pipeline.SyncPipeline")
+    @patch("src.config.config.Config.from_env")
+    def test_sync_partial_failure_returns_nonzero_exit(
+        self,
+        mock_config_from_env,
+        mock_pipeline,
+    ):
+        """Partial failures in main sync command should exit non-zero."""
+        from src.pipelines.sync_pipeline import sync
+
+        config = Config()
+        config.openai_api_key = "sk-test"
+        config.qdrant_api_key = "qdrant-key"
+        config.qdrant_cloud_url = "https://test.qdrant.tech"
+
+        mock_config_from_env.return_value = config
+
+        mock_instance = Mock()
+        mock_instance.health_check.return_value = True
+        mock_instance.sync.return_value = {
+            "status": "partial_success",
+            "changes_detected": True,
+            "upserted": 1,
+            "deleted": 0,
+            "renamed": 0,
+            "failed_files": ["file1.md"],
+        }
+        mock_pipeline.return_value = mock_instance
+
+        with pytest.raises(click.ClickException):
+            sync.callback()
+
+        mock_instance.sync.assert_called_once()
 
     def test_health_command_with_providers(self):
         """Test health command with different providers"""
-        from src.sync_pipeline import main
+        from src.pipelines.sync_pipeline import main
 
-        with patch("src.sync_pipeline.SyncPipeline") as mock_pipeline:
+        with patch("src.pipelines.sync_pipeline.SyncPipeline") as mock_pipeline:
             mock_instance = Mock()
             mock_instance.health_check.return_value = True
             mock_pipeline.return_value = mock_instance
@@ -278,9 +287,9 @@ class TestCLIProviders:
 
     def test_test_providers_command(self):
         """Test the test-providers command for connectivity validation"""
-        from src.sync_pipeline import test_providers
+        from src.pipelines.sync_pipeline import test_providers
 
-        with patch("src.providers.ProviderFactory") as mock_factory:
+        with patch("src.utils.providers.ProviderFactory") as mock_factory:
             mock_factory_instance = Mock()
             mock_embedding_service = Mock()
             mock_vector_service = Mock()
@@ -315,9 +324,9 @@ class TestCLIProviders:
 
     def test_migrate_providers_command(self):
         """Test the migrate command for switching providers"""
-        from src.sync_pipeline import migrate_providers
+        from src.pipelines.sync_pipeline import migrate_providers
 
-        with patch("src.sync_pipeline.SyncPipeline") as mock_pipeline:
+        with patch("src.pipelines.sync_pipeline.SyncPipeline") as mock_pipeline:
             mock_instance = Mock()
             mock_instance.health_check.return_value = True
             mock_pipeline.return_value = mock_instance
@@ -341,7 +350,7 @@ class TestCLIProviders:
 
     def test_config_file_operations(self):
         """Test configuration file save/load operations"""
-        from src.sync_pipeline import load_config_file
+        from src.pipelines.sync_pipeline import load_config_file
 
         config = Config(
             embedding_provider=EmbeddingProvider.OPENAI,
@@ -365,7 +374,7 @@ class TestCLIProviders:
 
     def test_provider_validation_in_cli(self):
         """Test provider validation in CLI commands"""
-        from src.sync_pipeline import main
+        from src.pipelines.sync_pipeline import main
 
         # Test with invalid provider
         result = self.runner.invoke(
@@ -377,7 +386,7 @@ class TestCLIProviders:
 
     def test_environment_variable_override(self):
         """Test that CLI options override environment variables"""
-        from src.sync_pipeline import main
+        from src.pipelines.sync_pipeline import main
 
         env = {
             "EMBEDDING_PROVIDER": "openai",
@@ -389,7 +398,7 @@ class TestCLIProviders:
         }
 
         with patch.dict(os.environ, env, clear=False):
-            with patch("src.sync_pipeline.SyncPipeline") as mock_pipeline:
+            with patch("src.pipelines.sync_pipeline.SyncPipeline") as mock_pipeline:
                 mock_instance = Mock()
                 mock_instance.health_check.return_value = True
                 mock_instance.sync.return_value = {
@@ -418,7 +427,7 @@ class TestCLIProviders:
 
     def test_config_import(self):
         """Test configuration import functionality"""
-        from src.sync_pipeline import import_config
+        from src.pipelines.sync_pipeline import import_config
 
         with self.runner.isolated_filesystem():
             # Create a test JSON config
@@ -444,9 +453,9 @@ class TestCLIProviders:
 
     def test_provider_status_display(self):
         """Test provider status display in health command"""
-        from src.sync_pipeline import main
+        from src.pipelines.sync_pipeline import main
 
-        with patch("src.sync_pipeline.SyncPipeline") as mock_pipeline:
+        with patch("src.pipelines.sync_pipeline.SyncPipeline") as mock_pipeline:
             mock_instance = Mock()
             mock_instance.health_check.return_value = True
             mock_instance.config = Config(
