@@ -170,12 +170,16 @@ class CloudflareR2SyncPipeline:
                 failed=len(failed_files),
             )
 
+            changes_detected = bool(uploaded_files or deleted_files)
+
             return {
                 "status": status,
                 "uploaded": len(uploaded_files),
                 "skipped": len(skipped_files),
                 "deleted": len(deleted_files),
                 "failed": len(failed_files),
+                "changes_detected": changes_detected,
+                "renamed": 0,
                 "uploaded_files": uploaded_files,
                 "deleted_files": deleted_files,
                 "failed_files": failed_files,
