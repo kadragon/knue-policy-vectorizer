@@ -59,8 +59,7 @@ knue-policy-vectorizer/
 ├── test_data/                  # Representative fixtures
 ├── logs/                       # Runtime logs (gitignored)
 ├── repo_cache/                 # Local clone of watched repo
-├── README.md                   # Operator and developer documentation
-└── scripts/                    # Operational utilities (R2 sync, smoke tests)
+└── README.md                   # Operator and developer documentation
 ```
 
 ## Future Roadmap

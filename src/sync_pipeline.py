@@ -1503,6 +1503,23 @@ def import_config(config_file: str):
         os.environ["VECTOR_SIZE"] = str(cfg.vector_size)
         os.environ["MAX_TOKEN_LENGTH"] = str(cfg.max_tokens)
         os.environ["LOG_LEVEL"] = cfg.log_level
+        os.environ["GIT_REPO_URL"] = cfg.repo_url
+        os.environ["GIT_BRANCH"] = cfg.branch
+        os.environ["MAX_WORKERS"] = str(cfg.max_workers)
+        os.environ["CLOUDFLARE_ACCOUNT_ID"] = cfg.cloudflare_account_id
+        os.environ["CLOUDFLARE_R2_ACCESS_KEY_ID"] = cfg.cloudflare_r2_access_key_id
+        os.environ["CLOUDFLARE_R2_SECRET_ACCESS_KEY"] = (
+            cfg.cloudflare_r2_secret_access_key
+        )
+        os.environ["CLOUDFLARE_R2_BUCKET"] = cfg.cloudflare_r2_bucket
+        os.environ["CLOUDFLARE_R2_ENDPOINT"] = cfg.cloudflare_r2_endpoint
+        os.environ["CLOUDFLARE_R2_KEY_PREFIX"] = cfg.cloudflare_r2_key_prefix
+        os.environ["CLOUDFLARE_R2_SOFT_DELETE_ENABLED"] = str(
+            cfg.cloudflare_r2_soft_delete_enabled
+        ).lower()
+        os.environ["CLOUDFLARE_R2_SOFT_DELETE_PREFIX"] = (
+            cfg.cloudflare_r2_soft_delete_prefix
+        )
         click.echo("✅ Configuration imported successfully")
     except Exception as e:
         click.echo(f"❌ Failed to import configuration: {e}")
