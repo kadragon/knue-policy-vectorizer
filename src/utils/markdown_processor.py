@@ -43,8 +43,8 @@ class MarkdownProcessor:
         self.chunk_overlap = config.chunk_overlap
 
         # Policy mapping cache
-        self._policy_mapping_cache = None
-        self._cache_timestamp = None
+        self._policy_mapping_cache: Optional[Dict[str, int]] = None
+        self._cache_timestamp: Optional[float] = None
         self._cache_duration = 3600  # Cache for 1 hour
 
     def remove_frontmatter(
@@ -66,14 +66,14 @@ class MarkdownProcessor:
 
             # If metadata was parsed, return content without frontmatter
             if post.metadata:
-                clean_content = post.content
-                metadata = dict(post.metadata)
-                self.logger.debug(
-                    "YAML frontmatter removed", metadata_keys=list(post.metadata.keys())
-                )
-                if return_metadata:
-                    return clean_content, metadata
-                return clean_content
+            clean_content: str = post.content
+            metadata = dict(post.metadata)
+            self.logger.debug(
+            "YAML frontmatter removed", metadata_keys=list(post.metadata.keys())
+            )
+            if return_metadata:
+            return clean_content, metadata
+            return clean_content
 
         except Exception as e:
             self.logger.debug("Failed to parse YAML frontmatter", error=str(e))
@@ -94,13 +94,13 @@ class MarkdownProcessor:
                 if end_idx > 0:
                     # Remove frontmatter and return remaining content
                     remaining_lines = lines[end_idx + 1 :]
-                    clean_content = "\n".join(remaining_lines).lstrip("\n")
+                    clean_content: str = "\n".join(remaining_lines).lstrip("\n")
                     frontmatter_lines = lines[1:end_idx]
 
                     if return_metadata:
                         try:
                             try:
-                                import tomllib  # type: ignore[import-not-found]
+                                import tomllib
                             except (
                                 ModuleNotFoundError
                             ):  # pragma: no cover - Python <3.11 fallback
@@ -812,9 +812,9 @@ class MarkdownProcessor:
             # Find current section for this chunk
             section_title = ""
             for header in reversed(headers):
-                if header["line"] < end_line:
-                    section_title = header["title"]
-                    break
+            if int(header["line"]) < end_line:
+            section_title = str(header["title"])
+            break
 
             # Calculate metrics (exclude overlap from token limit validation)
             main_content = "\n".join(lines[start_line:end_line])
@@ -1008,9 +1008,12 @@ class MarkdownProcessor:
 
         try:
             # Step 1: Remove frontmatter
-            content_no_frontmatter, frontmatter_metadata = self.remove_frontmatter(
-                raw_content, return_metadata=True
-            )
+            frontmatter_result = self.remove_frontmatter(raw_content, return_metadata=True)
+            if isinstance(frontmatter_result, tuple):
+                content_no_frontmatter, frontmatter_metadata = frontmatter_result
+            else:
+                content_no_frontmatter = frontmatter_result
+                frontmatter_metadata = {}
 
             # Step 2: Extract title
             title = self.extract_title(content_no_frontmatter, filename)
@@ -1097,13 +1100,16 @@ class MarkdownProcessor:
         """
         self.logger.debug("Processing markdown for R2", filename=filename)
         try:
-            content_no_frontmatter, frontmatter_metadata = self.remove_frontmatter(
-                raw_content, return_metadata=True
-            )
+            frontmatter_result = self.remove_frontmatter(raw_content, return_metadata=True)
+            if isinstance(frontmatter_result, tuple):
+                content_no_frontmatter, frontmatter_metadata = frontmatter_result
+            else:
+                content_no_frontmatter = frontmatter_result
+                frontmatter_metadata = {}
             title = self.extract_title(content_no_frontmatter, filename)
             clean_content = self.clean_content(content_no_frontmatter)
 
-            return {
+                return {
                 "content": clean_content,
                 "title": title,
                 "frontmatter": frontmatter_metadata,
