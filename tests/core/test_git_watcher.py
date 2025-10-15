@@ -15,7 +15,7 @@ from git import Repo
 def sys_path_src():
     """Temporarily add src to sys.path for imports."""
     original = list(sys.path)
-    src_path = os.path.join(os.path.dirname(__file__), "..", "src")
+    src_path = os.path.join(os.path.dirname(__file__), "..", "..", "src")
     if src_path not in sys.path:
         sys.path.insert(0, src_path)
     try:

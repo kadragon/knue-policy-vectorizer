@@ -177,7 +177,7 @@ class GitWatcher:
         try:
             # Handle initial sync when no previous commit is known
             if old_commit is None:
-                added_files = [path for path in self.get_markdown_files()]
+                added_files = [path for path in self.get_markdown_files()]  # type: ignore[unreachable]
                 self.logger.info(
                     "Initial sync detected",
                     added=len(added_files),
@@ -241,7 +241,7 @@ class GitWatcher:
                 renamed=len(renamed_files),
             )
 
-            return added_files, modified_files, deleted_files, renamed_files
+            return added_files, modified_files, deleted_files, renamed_files  # type: ignore[return-value]
 
         except Exception as e:
             self.logger.error(

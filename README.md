@@ -78,9 +78,10 @@ Sync Pipeline CLI ──▶ Markdown Processor ──▶ OpenAI Embeddings ─�
    ```
 
 3. **테스트 실행**
-   ```bash
-   uv run pytest -m "not slow"
-   ```
+```bash
+uv run pytest -m "not slow"  # 빠른 단위 테스트만 실행
+uv run pytest  # 모든 테스트 실행 (느린 테스트 포함)
+    ```
 
 4. **최초 동기화**
    ```bash

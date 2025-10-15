@@ -61,7 +61,7 @@ class QdrantService:
         self.collection_name = collection_name
         self.vector_size = vector_size
         self.distance = distance
-        self._client: Optional[QdrantClient] = None
+        self._client: Optional[Any] = None
 
         logger.info(
             "Initialized QdrantService",

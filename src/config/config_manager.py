@@ -358,7 +358,7 @@ class ConfigurationManager:
         return sorted(templates, key=lambda t: t.name)
 
     def create_config_from_template(
-        self, template_name: str, env_overrides: Dict[str, str] = None
+        self, template_name: str, env_overrides: Optional[Dict[str, str]] = None
     ) -> Optional[Config]:
         """Create configuration from template"""
         template = self.load_template(template_name)

@@ -138,7 +138,7 @@ class ProviderConfig:
 class ProviderFactory:
     """Factory for creating provider service instances"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logger.bind(component="ProviderFactory")
 
     def get_embedding_service(

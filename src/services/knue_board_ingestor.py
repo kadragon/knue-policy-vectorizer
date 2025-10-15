@@ -54,7 +54,7 @@ class KnueBoardIngestor:
         )
 
         # Lazily create Qdrant client on first use
-        self._qdrant_client = None  # type: ignore
+        self._qdrant_client: Optional[Any] = None
 
     # --------- HTTP helpers ---------
     def _http_get(self, url: str, timeout: int = 15) -> str:
@@ -370,7 +370,7 @@ class KnueBoardIngestor:
 
     # --------- Qdrant client helpers ---------
     @property
-    def qdrant_client(self):  # lazy
+    def qdrant_client(self) -> Any:  # lazy
         from qdrant_client import QdrantClient
 
         if self._qdrant_client is not None:

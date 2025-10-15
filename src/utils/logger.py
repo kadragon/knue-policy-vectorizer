@@ -1,7 +1,7 @@
 import logging
 import os
 import sys
-from typing import Optional
+from typing import Any, Optional
 
 import structlog
 from colorama import Fore, Style, init
@@ -34,7 +34,9 @@ def setup_logger(
         "critical": Fore.MAGENTA,
     }
 
-    def add_colors(logger, method_name, event_dict):
+    def add_colors(
+        logger, method_name: str, event_dict: dict[str, Any]
+    ) -> dict[str, Any]:
         """Add colors to log output based on level."""
         level = event_dict.get("level", "info").lower()
         color = colors.get(level, "")
