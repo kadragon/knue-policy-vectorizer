@@ -19,6 +19,16 @@ class TestCLIProviders:
     def setup_method(self):
         """Setup test environment"""
         self.runner = CliRunner()
+        for key in [
+            "EMBEDDING_PROVIDER",
+            "VECTOR_PROVIDER",
+            "OPENAI_API_KEY",
+            "OPENAI_MODEL",
+            "OPENAI_BASE_URL",
+            "QDRANT_CLOUD_URL",
+            "QDRANT_API_KEY",
+        ]:
+            os.environ.pop(key, None)
 
     def test_list_providers_command(self):
         """Test listing available providers"""
@@ -29,9 +39,7 @@ class TestCLIProviders:
         assert result.exit_code == 0
         assert "Available Embedding Providers:" in result.output
         assert "Available Vector Providers:" in result.output
-        assert "ollama" in result.output
         assert "openai" in result.output
-        assert "qdrant_local" in result.output
         assert "qdrant_cloud" in result.output
 
     def test_configure_providers_interactive(self):
@@ -66,10 +74,12 @@ class TestCLIProviders:
         with patch("click.prompt") as mock_prompt:
             mock_prompt.side_effect = [
                 "invalid_provider",  # Invalid embedding provider
-                "ollama",  # Valid fallback
-                "bge-m3",  # Model
-                "qdrant_local",  # Vector provider
-                "http://localhost:6333",  # Qdrant URL
+                "openai",  # Valid fallback
+                "sk-test-key",  # OpenAI API key
+                "text-embedding-3-small",  # Model
+                "qdrant_cloud",  # Vector provider
+                "https://test.qdrant.tech",  # Qdrant URL
+                "test-api-key",  # Qdrant API key
             ]
 
             with patch("click.confirm", return_value=True):
@@ -95,7 +105,19 @@ class TestCLIProviders:
         """Test sync command with provider options"""
         from src.sync_pipeline import main
 
-        with patch("src.sync_pipeline.SyncPipeline") as mock_pipeline:
+        env = {
+            "EMBEDDING_PROVIDER": "openai",
+            "VECTOR_PROVIDER": "qdrant_cloud",
+            "OPENAI_API_KEY": "sk-test",
+            "OPENAI_MODEL": "text-embedding-3-small",
+            "QDRANT_CLOUD_URL": "https://test.qdrant.tech",
+            "QDRANT_API_KEY": "test-key",
+        }
+
+        with (
+            patch.dict(os.environ, env, clear=False),
+            patch("src.sync_pipeline.SyncPipeline") as mock_pipeline,
+        ):
             mock_instance = Mock()
             mock_instance.health_check.return_value = True
             mock_instance.sync.return_value = {
@@ -165,7 +187,19 @@ class TestCLIProviders:
         """Partial sync failures should surface as a warning."""
         from src.sync_pipeline import main
 
-        with patch("src.sync_pipeline.SyncPipeline") as mock_pipeline:
+        env = {
+            "EMBEDDING_PROVIDER": "openai",
+            "VECTOR_PROVIDER": "qdrant_cloud",
+            "OPENAI_API_KEY": "sk-test",
+            "OPENAI_MODEL": "text-embedding-3-small",
+            "QDRANT_CLOUD_URL": "https://test.qdrant.tech",
+            "QDRANT_API_KEY": "test-key",
+        }
+
+        with (
+            patch.dict(os.environ, env, clear=False),
+            patch("src.sync_pipeline.SyncPipeline") as mock_pipeline,
+        ):
             mock_instance = Mock()
             mock_instance.health_check.return_value = True
             mock_instance.sync.return_value = {
@@ -293,9 +327,9 @@ class TestCLIProviders:
                     migrate_providers,
                     [
                         "--from-embedding",
-                        "ollama",
+                        "openai",
                         "--from-vector",
-                        "qdrant_local",
+                        "qdrant_cloud",
                         "--to-embedding",
                         "openai",
                         "--to-vector",
@@ -320,7 +354,7 @@ class TestCLIProviders:
         with self.runner.isolated_filesystem():
             # Create a test .env file manually
             with open("test-config.env", "w") as f:
-                f.write("EMBEDDING_PROVIDER=ollama\nVECTOR_PROVIDER=qdrant_local\n")
+                f.write("EMBEDDING_PROVIDER=openai\nVECTOR_PROVIDER=qdrant_cloud\n")
 
             # Test loading config
             result = self.runner.invoke(
@@ -345,10 +379,16 @@ class TestCLIProviders:
         """Test that CLI options override environment variables"""
         from src.sync_pipeline import main
 
-        with patch.dict(
-            os.environ,
-            {"EMBEDDING_PROVIDER": "ollama", "VECTOR_PROVIDER": "qdrant_local"},
-        ):
+        env = {
+            "EMBEDDING_PROVIDER": "openai",
+            "VECTOR_PROVIDER": "qdrant_cloud",
+            "OPENAI_API_KEY": "sk-env",
+            "OPENAI_MODEL": "text-embedding-3-small",
+            "QDRANT_CLOUD_URL": "https://env.qdrant.tech",
+            "QDRANT_API_KEY": "env-key",
+        }
+
+        with patch.dict(os.environ, env, clear=False):
             with patch("src.sync_pipeline.SyncPipeline") as mock_pipeline:
                 mock_instance = Mock()
                 mock_instance.health_check.return_value = True
@@ -385,10 +425,14 @@ class TestCLIProviders:
             import json
 
             config_data = {
-                "embedding_provider": "ollama",
-                "vector_provider": "qdrant_local",
+                "embedding_provider": "openai",
+                "vector_provider": "qdrant_cloud",
                 "qdrant_collection": "test_collection",
-                "vector_size": 1024,
+                "vector_size": 1536,
+                "openai_api_key": "sk-test",
+                "openai_model": "text-embedding-3-small",
+                "qdrant_cloud_url": "https://test.qdrant.tech",
+                "qdrant_api_key": "test-key",
             }
             with open("config.json", "w") as f:
                 json.dump(config_data, f)

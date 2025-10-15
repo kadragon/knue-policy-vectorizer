@@ -48,7 +48,7 @@ def test_full_sync_pipeline():
         repo_cache_dir="./test_repo_cache",
         qdrant_collection="knue-policy-test",
         vector_size=1024,
-        embedding_model="bge-m3",
+        openai_model="text-embedding-3-small",
     )
 
     # Initialize pipeline

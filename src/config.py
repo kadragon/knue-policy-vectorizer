@@ -1,3 +1,4 @@
+# CONFIG GROUP - Configuration management and settings
 import json
 import os
 from dataclasses import dataclass, field
@@ -21,13 +22,12 @@ class Config:
     repo_cache_dir: str = "./repo_cache"
 
     # Provider selection
-    embedding_provider: EmbeddingProvider = EmbeddingProvider.OLLAMA
-    vector_provider: VectorProvider = VectorProvider.QDRANT_LOCAL
+    embedding_provider: EmbeddingProvider = EmbeddingProvider.OPENAI
+    vector_provider: VectorProvider = VectorProvider.QDRANT_CLOUD
 
-    # Qdrant settings (local)
-    qdrant_url: str = "http://localhost:6333"
+    # Qdrant settings (cloud)
     qdrant_collection: str = "knue_policies"
-    vector_size: int = 1024
+    vector_size: int = 1536
 
     # Qdrant collection for KNUE web boards
     qdrant_board_collection: str = "www-board-data"
@@ -47,10 +47,6 @@ class Config:
     cloudflare_r2_soft_delete_enabled: bool = False
     cloudflare_r2_soft_delete_prefix: str = "deleted/"
 
-    # Ollama settings
-    ollama_url: str = "http://localhost:11434"
-    embedding_model: str = "bge-m3"
-
     # OpenAI settings
     openai_api_key: str = ""
     openai_model: str = "text-embedding-3-large"
@@ -59,7 +55,7 @@ class Config:
     # Processing settings
     max_workers: int = 4
     max_document_chars: int = 30000
-    max_tokens: int = 8192  # Maximum tokens for embedding service (bge-m3 limit)
+    max_tokens: int = 8192  # Maximum tokens for embedding service
     chunk_threshold: int = 800  # Chunking threshold for better semantic search
     chunk_overlap: int = 200  # Overlap tokens between chunks for context continuity
 
@@ -144,28 +140,20 @@ class Config:
         embedding_provider_str = os.getenv("EMBEDDING_PROVIDER")
         if not embedding_provider_str:
             if (
-                os.getenv("OLLAMA_URL")
-                or os.getenv("OLLAMA_MODEL")
-                or os.getenv("EMBEDDING_MODEL")
-            ):
-                embedding_provider_str = "ollama"
-            elif (
                 os.getenv("OPENAI_API_KEY")
                 or os.getenv("OPENAI_MODEL")
                 or os.getenv("OPENAI_BASE_URL")
             ):
                 embedding_provider_str = "openai"
             else:
-                embedding_provider_str = "ollama"
+                embedding_provider_str = "openai"
 
         vector_provider_str = os.getenv("VECTOR_PROVIDER")
         if not vector_provider_str:
-            if os.getenv("QDRANT_URL"):
-                vector_provider_str = "qdrant_local"
-            elif os.getenv("QDRANT_CLOUD_URL") or os.getenv("QDRANT_API_KEY"):
+            if os.getenv("QDRANT_CLOUD_URL") or os.getenv("QDRANT_API_KEY"):
                 vector_provider_str = "qdrant_cloud"
             else:
-                vector_provider_str = "qdrant_local"
+                vector_provider_str = "qdrant_cloud"
 
         try:
             embedding_provider = EmbeddingProvider(embedding_provider_str)
@@ -177,8 +165,6 @@ class Config:
         except ValueError:
             raise ValueError(f"Invalid vector provider: {vector_provider_str}")
 
-        # Qdrant settings (local)
-        qdrant_url = os.getenv("QDRANT_URL", cls.qdrant_url)
         qdrant_collection = cls._get_env_str(
             "COLLECTION_NAME", "QDRANT_COLLECTION", cls.qdrant_collection
         )
@@ -189,12 +175,6 @@ class Config:
         qdrant_api_key = os.getenv("QDRANT_API_KEY", cls.qdrant_api_key)
         qdrant_cluster_region = os.getenv(
             "QDRANT_CLUSTER_REGION", cls.qdrant_cluster_region
-        )
-
-        # Ollama settings
-        ollama_url = os.getenv("OLLAMA_URL", cls.ollama_url)
-        embedding_model = cls._get_env_str(
-            "OLLAMA_MODEL", "EMBEDDING_MODEL", cls.embedding_model
         )
 
         # OpenAI settings
@@ -318,15 +298,12 @@ class Config:
             repo_cache_dir=repo_cache_dir,
             embedding_provider=embedding_provider,
             vector_provider=vector_provider,
-            qdrant_url=qdrant_url,
             qdrant_collection=qdrant_collection,
             vector_size=vector_size,
             qdrant_board_collection=qdrant_board_collection,
             qdrant_cloud_url=qdrant_cloud_url,
             qdrant_api_key=qdrant_api_key,
             qdrant_cluster_region=qdrant_cluster_region,
-            ollama_url=ollama_url,
-            embedding_model=embedding_model,
             openai_api_key=openai_api_key,
             openai_model=openai_model,
             openai_base_url=openai_base_url,
@@ -365,13 +342,7 @@ class Config:
 
     def get_embedding_service_config(self) -> Dict[str, Any]:
         """Get configuration dictionary for embedding service"""
-        if self.embedding_provider == EmbeddingProvider.OLLAMA:
-            return {
-                "ollama_url": self.ollama_url,
-                "model": self.embedding_model,
-                "max_tokens": self.max_tokens,
-            }
-        elif self.embedding_provider == EmbeddingProvider.OPENAI:
+        if self.embedding_provider == EmbeddingProvider.OPENAI:
             return {
                 "api_key": self.openai_api_key,
                 "model": self.openai_model,
@@ -385,9 +356,7 @@ class Config:
 
     def get_vector_service_config(self) -> Dict[str, Any]:
         """Get configuration dictionary for vector service"""
-        if self.vector_provider == VectorProvider.QDRANT_LOCAL:
-            return {"url": self.qdrant_url}
-        elif self.vector_provider == VectorProvider.QDRANT_CLOUD:
+        if self.vector_provider == VectorProvider.QDRANT_CLOUD:
             return {"url": self.qdrant_cloud_url, "api_key": self.qdrant_api_key}
         else:
             raise ValueError(f"Unsupported vector provider: {self.vector_provider}")
@@ -437,14 +406,11 @@ class Config:
             "repo_cache_dir": self.repo_cache_dir,
             "embedding_provider": str(self.embedding_provider),
             "vector_provider": str(self.vector_provider),
-            "qdrant_url": self.qdrant_url,
             "qdrant_collection": self.qdrant_collection,
             "vector_size": self.vector_size,
             "qdrant_cloud_url": self.qdrant_cloud_url,
             "qdrant_api_key": self.qdrant_api_key,
             "qdrant_cluster_region": self.qdrant_cluster_region,
-            "ollama_url": self.ollama_url,
-            "embedding_model": self.embedding_model,
             "openai_api_key": self.openai_api_key,
             "openai_model": self.openai_model,
             "openai_base_url": self.openai_base_url,

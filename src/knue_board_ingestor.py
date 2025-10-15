@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 
 import requests
 import structlog
@@ -380,16 +380,9 @@ class KnueBoardIngestor:
         if self._qdrant_client is not None:
             return self._qdrant_client
 
-        if self.config.vector_provider.name == "QDRANT_CLOUD":
-            self._qdrant_client = QdrantClient(
-                url=self.config.qdrant_cloud_url, api_key=self.config.qdrant_api_key
-            )
-        else:
-            # Parse host/port from qdrant_url
-            parsed = urlparse(self.config.qdrant_url)
-            host = parsed.hostname or "localhost"
-            port = parsed.port or 6333
-            self._qdrant_client = QdrantClient(host=host, port=port)
+        self._qdrant_client = QdrantClient(
+            url=self.config.qdrant_cloud_url, api_key=self.config.qdrant_api_key
+        )
 
         return self._qdrant_client
 

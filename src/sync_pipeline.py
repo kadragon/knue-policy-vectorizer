@@ -13,7 +13,7 @@ import structlog
 try:
     from .config import Config
     from .config_manager import ConfigProfile, ConfigTemplate, ConfigurationManager
-    from .embedding_service import EmbeddingService
+    from .embedding_service_openai import OpenAIEmbeddingService
     from .git_watcher import GitWatcher
     from .knue_board_ingestor import KnueBoardIngestor
     from .logger import setup_logger
@@ -31,14 +31,14 @@ try:
         CloudflareR2SyncError,
         CloudflareR2SyncPipeline,
     )
-except Exception:  # pragma: no cover - fallback when imported as a script
+except ImportError:  # pragma: no cover - fallback when executed as script
     from config import Config  # type: ignore
     from config_manager import (  # type: ignore
         ConfigProfile,
         ConfigTemplate,
         ConfigurationManager,
     )
-    from embedding_service import EmbeddingService  # type: ignore
+    from embedding_service_openai import OpenAIEmbeddingService  # type: ignore
     from git_watcher import GitWatcher  # type: ignore
     from knue_board_ingestor import KnueBoardIngestor  # type: ignore
     from logger import setup_logger  # type: ignore
@@ -621,14 +621,6 @@ def configure_providers():
         )
         # Use default base URL from current config without prompting to keep tests simple
         config_dict["openai_base_url"] = current_config.openai_base_url
-    elif embedding_provider == EmbeddingProvider.OLLAMA:
-        # Do not prompt for URL in interactive flow to match tests; keep existing
-        config_dict["ollama_url"] = current_config.ollama_url
-        config_dict["embedding_model"] = click.prompt(
-            "Ollama Model",
-            default=current_config.embedding_model,
-            show_default=True,
-        )
 
     # Vector provider selection
     click.echo("\n🗄️ Select Vector Provider:")
@@ -664,10 +656,6 @@ def configure_providers():
             hide_input=True,
             show_default=False,
         )
-    elif vector_provider == VectorProvider.QDRANT_LOCAL:
-        config_dict["qdrant_url"] = click.prompt(
-            "Qdrant Local URL", default=current_config.qdrant_url, show_default=True
-        )
 
     # Create new config and validate
     new_config = Config(**{**current_config.to_dict(), **config_dict})
@@ -700,10 +688,7 @@ def show_config():
 
         click.echo("📊 Embedding Provider:")
         click.echo(f"  Provider: {config.embedding_provider}")
-        if config.embedding_provider == EmbeddingProvider.OLLAMA:
-            click.echo(f"  URL: {config.ollama_url}")
-            click.echo(f"  Model: {config.embedding_model}")
-        elif config.embedding_provider == EmbeddingProvider.OPENAI:
+        if config.embedding_provider == EmbeddingProvider.OPENAI:
             click.echo(f"  Model: {config.openai_model}")
             click.echo(f"  Base URL: {config.openai_base_url}")
             api_key_preview = (
@@ -715,9 +700,7 @@ def show_config():
 
         click.echo("\n🗄️ Vector Provider:")
         click.echo(f"  Provider: {config.vector_provider}")
-        if config.vector_provider == VectorProvider.QDRANT_LOCAL:
-            click.echo(f"  URL: {config.qdrant_url}")
-        elif config.vector_provider == VectorProvider.QDRANT_CLOUD:
+        if config.vector_provider == VectorProvider.QDRANT_CLOUD:
             click.echo(f"  URL: {config.qdrant_cloud_url}")
             api_key_preview = (
                 config.qdrant_api_key[:8] + "..."
@@ -820,20 +803,20 @@ def test_providers(
 
 @main.command(name="migrate")
 @click.option(
-    "--from-embedding", required=True, help="Source embedding provider (ollama|openai)"
+    "--from-embedding", required=True, help="Source embedding provider (openai)"
 )
 @click.option(
     "--from-vector",
     required=True,
-    help="Source vector provider (qdrant_local|qdrant_cloud)",
+    help="Source vector provider (qdrant_cloud)",
 )
 @click.option(
-    "--to-embedding", required=True, help="Target embedding provider (ollama|openai)"
+    "--to-embedding", required=True, help="Target embedding provider (openai)"
 )
 @click.option(
     "--to-vector",
     required=True,
-    help="Target vector provider (qdrant_local|qdrant_cloud)",
+    help="Target vector provider (qdrant_cloud)",
 )
 @click.option("--batch-size", default=50, help="Migration batch size")
 @click.option(
@@ -1513,14 +1496,9 @@ def import_config(config_file: str):
             os.environ["OPENAI_API_KEY"] = cfg.openai_api_key
             os.environ["OPENAI_MODEL"] = cfg.openai_model
             os.environ["OPENAI_BASE_URL"] = cfg.openai_base_url
-        if cfg.embedding_provider == EmbeddingProvider.OLLAMA:
-            os.environ["OLLAMA_URL"] = cfg.ollama_url
-            os.environ["OLLAMA_MODEL"] = cfg.embedding_model
         if cfg.vector_provider == VectorProvider.QDRANT_CLOUD:
             os.environ["QDRANT_CLOUD_URL"] = cfg.qdrant_cloud_url
             os.environ["QDRANT_API_KEY"] = cfg.qdrant_api_key
-        if cfg.vector_provider == VectorProvider.QDRANT_LOCAL:
-            os.environ["QDRANT_URL"] = cfg.qdrant_url
         os.environ["COLLECTION_NAME"] = cfg.qdrant_collection
         os.environ["VECTOR_SIZE"] = str(cfg.vector_size)
         os.environ["MAX_TOKEN_LENGTH"] = str(cfg.max_tokens)
@@ -1844,11 +1822,7 @@ def board_sync(board_idx: tuple[int, ...]):
     click.echo(
         f"📚 Boards: {', '.join(str(i) for i in indices)} | Collection: {config.qdrant_board_collection}"
     )
-    model_name = (
-        config.openai_model
-        if str(config.embedding_provider) == "openai"
-        else config.embedding_model
-    )
+    model_name = config.openai_model
     click.echo(f"🔤 Embedding: {config.embedding_provider} ({model_name})")
 
     try:
@@ -1910,11 +1884,7 @@ def board_reindex(board_idx: tuple[int, ...], drop_collection: Optional[bool]):
     click.echo(
         f"📚 Boards: {', '.join(str(i) for i in indices)} | Collection: {config.qdrant_board_collection}"
     )
-    model_name = (
-        config.openai_model
-        if str(config.embedding_provider) == "openai"
-        else config.embedding_model
-    )
+    model_name = config.openai_model
     click.echo(f"🔤 Embedding: {config.embedding_provider} ({model_name})")
     click.echo(
         f"🧹 Drop collection: {'yes' if drop_collection else 'no'} | Mode: full ingest"

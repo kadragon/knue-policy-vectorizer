@@ -17,30 +17,41 @@ owner: team-admin
 
 ## Architecture
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Host Machine  │    │  Docker Network │    │  Docker Network │
-│                 │    │                 │    │                 │
-│  Ollama:11434   │◄───┤  Indexer        │◄───┤  Qdrant:6333    │
-│  bge-m3 model   │    │  (Python App)   │    │  (Vector DB)    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                              │
-                              ▼
-                    ┌─────────────────┐
-                    │  Git Repository │
-                    │  KNUE-Policy-Hub│
-                    └─────────────────┘
+┌────────────────────┐       ┌──────────────────────┐
+│  GitHub Actions    │       │  KNUE Policy Hub Git │
+│  (Daily Sync)      │       │  Repository          │
+└─────────┬──────────┘       └──────────┬───────────┘
+          │                               │
+          ▼                               ▼
+┌────────────────────┐       ┌──────────────────────┐
+│  Sync Pipeline CLI │──────▶│  Markdown Processor  │
+│  (uv run …)        │       └──────────┬───────────┘
+└─────────┬──────────┘                  │ chunks
+          │ embeddings                  ▼
+          ▼                    ┌──────────────────────┐
+┌────────────────────┐         │  OpenAI Embeddings   │
+│  Cloudflare R2     │         │  (text-embedding-3)  │
+│  Document Cache    │────────▶└──────────┬───────────┘
+└─────────┬──────────┘                    │ vectors (1536d)
+          │                                ▼
+          ▼                    ┌──────────────────────┐
+┌────────────────────┐         │  Qdrant Cloud        │
+│  Observability     │◀────────│  (Managed Vector DB) │
+└────────────────────┘         └──────────────────────┘
 ```
 
 ## Technology Stack
 - Python 3.11+, managed via `uv`.
-- Qdrant (1024-dimensional vectors) for vector persistence.
-- Ollama `bge-m3` model for embeddings.
-- Docker & Docker Compose for container orchestration.
+- OpenAI Embeddings (`text-embedding-3-*`, 1536-dimensional vectors) served via HTTPS API.
+- Qdrant Cloud for fully managed vector persistence and search.
+- Cloudflare R2 for immutable document backups and soft-delete retention.
 - `structlog` for structured logging across services.
 
 ## Repository Layout
 ```
 knue-policy-vectorizer/
+├── .spec/                     # Canonical roadmap & acceptance criteria
+├── .agents/                   # Repository policies, workflows, templates
 ├── src/                        # Core application modules
 ├── tests/                      # pytest suite (unit/integration/slow markers)
 ├── scripts/                    # Integration utilities (e.g., test_full_sync_pipeline.py)
@@ -48,10 +59,8 @@ knue-policy-vectorizer/
 ├── test_data/                  # Representative fixtures
 ├── logs/                       # Runtime logs (gitignored)
 ├── repo_cache/                 # Local clone of watched repo
-├── docker-compose*.yml         # Deployment topologies
-├── Dockerfile                  # Indexer container image
-├── README.md / DOCKER.md       # External documentation
-└── TODO.md                     # Development history & backlog
+├── README.md                   # Operator and developer documentation
+└── scripts/                    # Operational utilities (R2 sync, smoke tests)
 ```
 
 ## Future Roadmap

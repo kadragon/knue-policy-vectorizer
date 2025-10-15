@@ -18,13 +18,14 @@ def test_config_from_env_supports_legacy_and_canonical_keys(monkeypatch):
         "REPO_URL",
         "GIT_BRANCH",
         "BRANCH",
-        "QDRANT_URL",
         "COLLECTION_NAME",
         "QDRANT_COLLECTION",
         "VECTOR_SIZE",
-        "OLLAMA_URL",
-        "OLLAMA_MODEL",
-        "EMBEDDING_MODEL",
+        "OPENAI_API_KEY",
+        "OPENAI_MODEL",
+        "OPENAI_BASE_URL",
+        "QDRANT_CLOUD_URL",
+        "QDRANT_API_KEY",
         "MAX_WORKERS",
         "MAX_DOCUMENT_CHARS",
         "MAX_TOKEN_LENGTH",
@@ -40,11 +41,13 @@ def test_config_from_env_supports_legacy_and_canonical_keys(monkeypatch):
     # Set canonical envs
     monkeypatch.setenv("GIT_REPO_URL", "https://example.com/repo.git")
     monkeypatch.setenv("GIT_BRANCH", "prod")
-    monkeypatch.setenv("QDRANT_URL", "http://qdrant.local:6333")
+    monkeypatch.setenv("QDRANT_CLOUD_URL", "https://cloud.qdrant.tech")
+    monkeypatch.setenv("QDRANT_API_KEY", "test-api-key")
     monkeypatch.setenv("COLLECTION_NAME", "policies")
     monkeypatch.setenv("VECTOR_SIZE", "1536")
-    monkeypatch.setenv("OLLAMA_URL", "http://ollama.local:11434")
-    monkeypatch.setenv("OLLAMA_MODEL", "bge-test")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setenv("OPENAI_MODEL", "text-embedding-3-small")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://api.example.com/v1")
     monkeypatch.setenv("MAX_WORKERS", "8")
     monkeypatch.setenv("MAX_DOCUMENT_CHARS", "12345")
     monkeypatch.setenv("MAX_TOKEN_LENGTH", "4096")
@@ -57,11 +60,12 @@ def test_config_from_env_supports_legacy_and_canonical_keys(monkeypatch):
 
     assert cfg.repo_url == "https://example.com/repo.git"
     assert cfg.branch == "prod"
-    assert cfg.qdrant_url == "http://qdrant.local:6333"
     assert cfg.qdrant_collection == "policies"
     assert cfg.vector_size == 1536
-    assert cfg.ollama_url == "http://ollama.local:11434"
-    assert cfg.embedding_model == "bge-test"
+    assert cfg.qdrant_cloud_url == "https://cloud.qdrant.tech"
+    assert cfg.qdrant_api_key == "test-api-key"
+    assert cfg.openai_model == "text-embedding-3-small"
+    assert cfg.openai_base_url == "https://api.example.com/v1"
     assert cfg.max_workers == 8
     assert cfg.max_document_chars == 12345
     assert cfg.max_tokens == 4096
@@ -77,7 +81,6 @@ def test_config_from_env_supports_legacy_and_canonical_keys(monkeypatch):
     monkeypatch.setenv("REPO_URL", "https://legacy/repo.git")
     monkeypatch.setenv("BRANCH", "legacy")
     monkeypatch.setenv("QDRANT_COLLECTION", "legacy_collection")
-    monkeypatch.setenv("EMBEDDING_MODEL", "legacy-model")
     monkeypatch.setenv("MAX_TOKENS", "2048")
 
     cfg2 = Config.from_env()
@@ -85,7 +88,6 @@ def test_config_from_env_supports_legacy_and_canonical_keys(monkeypatch):
     assert cfg2.repo_url == "https://legacy/repo.git"
     assert cfg2.branch == "legacy"
     assert cfg2.qdrant_collection == "legacy_collection"
-    assert cfg2.embedding_model == "legacy-model"
     assert cfg2.max_tokens == 2048
 
 
@@ -100,8 +102,7 @@ def test_canonical_overrides_legacy_when_both_set(monkeypatch):
         "BRANCH",
         "COLLECTION_NAME",
         "QDRANT_COLLECTION",
-        "OLLAMA_MODEL",
-        "EMBEDDING_MODEL",
+        "OPENAI_MODEL",
         "MAX_TOKEN_LENGTH",
         "MAX_TOKENS",
     ]:
@@ -117,8 +118,7 @@ def test_canonical_overrides_legacy_when_both_set(monkeypatch):
     monkeypatch.setenv("COLLECTION_NAME", "canonical_collection")
     monkeypatch.setenv("QDRANT_COLLECTION", "legacy_collection")
 
-    monkeypatch.setenv("OLLAMA_MODEL", "canonical-model")
-    monkeypatch.setenv("EMBEDDING_MODEL", "legacy-model")
+    monkeypatch.setenv("OPENAI_MODEL", "canonical-model")
 
     monkeypatch.setenv("MAX_TOKEN_LENGTH", "9999")
     monkeypatch.setenv("MAX_TOKENS", "1111")
@@ -128,7 +128,7 @@ def test_canonical_overrides_legacy_when_both_set(monkeypatch):
     assert cfg.repo_url == "https://canonical/repo.git"
     assert cfg.branch == "canonical-branch"
     assert cfg.qdrant_collection == "canonical_collection"
-    assert cfg.embedding_model == "canonical-model"
+    assert cfg.openai_model == "canonical-model"
     assert cfg.max_tokens == 9999
 
 

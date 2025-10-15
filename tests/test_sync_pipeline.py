@@ -730,7 +730,7 @@ class TestSyncPipelineIntegration:
         """Test that sync pipeline can import all required modules."""
         # Test component imports work
         from config import Config
-        from embedding_service import EmbeddingService
+        from embedding_service_openai import OpenAIEmbeddingService
         from git_watcher import GitWatcher
         from markdown_processor import MarkdownProcessor
         from qdrant_service import QdrantService
@@ -738,7 +738,7 @@ class TestSyncPipelineIntegration:
         # All imports should work without error
         assert GitWatcher is not None
         assert MarkdownProcessor is not None
-        assert EmbeddingService is not None
+        assert OpenAIEmbeddingService is not None
         assert QdrantService is not None
         assert Config is not None
 
@@ -748,16 +748,16 @@ class TestSyncPipelineIntegration:
             repo_url="https://github.com/test/repo.git",
             branch="test",
             qdrant_collection="test_collection",
-            vector_size=1024,
-            embedding_model="bge-m3",
+            vector_size=1536,
+            openai_model="text-embedding-3-small",
         )
 
         # Config should have all required attributes
         assert config.repo_url == "https://github.com/test/repo.git"
         assert config.branch == "test"
         assert config.qdrant_collection == "test_collection"
-        assert config.vector_size == 1024
-        assert config.embedding_model == "bge-m3"
+        assert config.vector_size == 1536
+        assert config.openai_model == "text-embedding-3-small"
 
 
 # Test utilities and error classes that need to be implemented

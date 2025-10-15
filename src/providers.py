@@ -1,3 +1,4 @@
+# SERVICES GROUP - Service interfaces and provider management
 """
 Multi-provider support for embedding and vector services
 """
@@ -14,7 +15,6 @@ logger = structlog.get_logger(__name__)
 class EmbeddingProvider(Enum):
     """Supported embedding service providers"""
 
-    OLLAMA = "ollama"
     OPENAI = "openai"
 
     def __str__(self) -> str:
@@ -24,7 +24,6 @@ class EmbeddingProvider(Enum):
 class VectorProvider(Enum):
     """Supported vector database providers"""
 
-    QDRANT_LOCAL = "qdrant_local"
     QDRANT_CLOUD = "qdrant_cloud"
 
     def __str__(self) -> str:
@@ -148,9 +147,7 @@ class ProviderFactory:
         """Get embedding service instance for the specified provider"""
         self.logger.info("Creating embedding service", provider=str(provider))
 
-        if provider == EmbeddingProvider.OLLAMA:
-            return self._create_ollama_embedding_service(config)
-        elif provider == EmbeddingProvider.OPENAI:
+        if provider == EmbeddingProvider.OPENAI:
             return self._create_openai_embedding_service(config)
         else:
             raise ValueError(f"Unsupported embedding provider: {provider}")
@@ -161,9 +158,7 @@ class ProviderFactory:
         """Get vector service instance for the specified provider"""
         self.logger.info("Creating vector service", provider=str(provider))
 
-        if provider == VectorProvider.QDRANT_LOCAL:
-            return self._create_qdrant_local_service(config)
-        elif provider == VectorProvider.QDRANT_CLOUD:
+        if provider == VectorProvider.QDRANT_CLOUD:
             return self._create_qdrant_cloud_service(config)
         else:
             raise ValueError(f"Unsupported vector provider: {provider}")
@@ -172,10 +167,7 @@ class ProviderFactory:
         self, provider: EmbeddingProvider, config: Dict[str, Any]
     ) -> bool:
         """Validate configuration for embedding provider"""
-        if provider == EmbeddingProvider.OLLAMA:
-            required_fields = ["ollama_url", "model"]
-            return all(field in config for field in required_fields)
-        elif provider == EmbeddingProvider.OPENAI:
+        if provider == EmbeddingProvider.OPENAI:
             required_fields = ["api_key", "model"]
             return all(field in config for field in required_fields)
         else:
@@ -185,29 +177,10 @@ class ProviderFactory:
         self, provider: VectorProvider, config: Dict[str, Any]
     ) -> bool:
         """Validate configuration for vector provider"""
-        if provider == VectorProvider.QDRANT_LOCAL:
-            required_fields = ["url"]
-            return all(field in config for field in required_fields)
-        elif provider == VectorProvider.QDRANT_CLOUD:
+        if provider == VectorProvider.QDRANT_CLOUD:
             required_fields = ["url", "api_key"]
             return all(field in config for field in required_fields)
-        else:
-            return False
-
-    def _create_ollama_embedding_service(
-        self, config: Dict[str, Any]
-    ) -> EmbeddingServiceInterface:
-        """Create Ollama embedding service instance"""
-        # Use existing embedding service
-        try:
-            from .embedding_service import EmbeddingService
-        except ImportError:
-            from embedding_service import EmbeddingService
-        return EmbeddingService(
-            base_url=config.get("ollama_url", "http://localhost:11434"),
-            model_name=config.get("model", "bge-m3"),
-            max_tokens=config.get("max_tokens", 8192),
-        )
+        return False
 
     def _create_openai_embedding_service(
         self, config: Dict[str, Any]
@@ -221,30 +194,6 @@ class ProviderFactory:
             api_key=config["api_key"],
             model=config.get("model", "text-embedding-3-small"),
             base_url=config.get("base_url", "https://api.openai.com/v1"),
-        )
-
-    def _create_qdrant_local_service(
-        self, config: Dict[str, Any]
-    ) -> VectorServiceInterface:
-        """Create local Qdrant service instance"""
-        # Use existing Qdrant service
-        try:
-            from .qdrant_service import QdrantService
-        except ImportError:
-            from qdrant_service import QdrantService
-
-        # Parse URL to get host and port
-        from urllib.parse import urlparse
-
-        parsed_url = urlparse(config["url"])
-        host = parsed_url.hostname
-        port = parsed_url.port or 6333
-
-        return QdrantService(
-            host=host,
-            port=port,
-            collection_name=config.get("collection_name", "knue-policy-idx"),
-            vector_size=config.get("vector_size", 1024),
         )
 
     def _create_qdrant_cloud_service(
@@ -266,10 +215,10 @@ class ProviderFactory:
 
 # Convenience functions for backward compatibility
 def create_default_provider_config() -> ProviderConfig:
-    """Create default provider configuration (Ollama + local Qdrant)"""
+    """Create default provider configuration (OpenAI + Qdrant Cloud)"""
     return ProviderConfig(
-        embedding_provider=EmbeddingProvider.OLLAMA,
-        vector_provider=VectorProvider.QDRANT_LOCAL,
+        embedding_provider=EmbeddingProvider.OPENAI,
+        vector_provider=VectorProvider.QDRANT_CLOUD,
     )
 
 

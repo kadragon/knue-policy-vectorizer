@@ -13,8 +13,8 @@ owner: team-admin
 
 ## Environment & Setup
 - Install dependencies with `uv sync`; perform editable installs via `uv pip install -e .`.
-- Provision supporting services locally: `docker-compose up -d qdrant`, `ollama serve`, `ollama pull bge-m3`.
-- Copy `.env.example` to `.env` and adjust URLs, credentials, and resource limits for the target environment.
+- Configure managed credentials instead of local services: set `OPENAI_API_KEY`, `OPENAI_MODEL`, `QDRANT_CLOUD_URL`, and `QDRANT_API_KEY` in your shell or secrets manager.
+- Use `config/templates/openai-cloud.json` as the baseline template when bootstrapping new environments.
 
 ## Core Commands
 - Formatting: `uv run black src/ tests/ && uv run isort src/ tests/`.
@@ -40,6 +40,6 @@ owner: team-admin
 - Operate production at `LOG_LEVEL=INFO`; temporarily elevate to `DEBUG` only for short diagnostics.
 
 ## Support & Maintenance
-- Track outstanding work in `TODO.md` and GitHub issues.
+- Track roadmap updates in `.spec/sync-pipeline/project-roadmap.spec.md` and GitHub issues.
 - Require code review with reproducible commands and relevant logs for each change.
 - Update policy documents when architecture or process adjustments occur to preserve a single source of truth.

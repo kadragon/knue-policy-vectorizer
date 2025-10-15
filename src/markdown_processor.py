@@ -242,15 +242,12 @@ class MarkdownProcessor:
         """
         if use_embedding_service:
             try:
-                # Import here to avoid circular imports
-                from embedding_service import EmbeddingService
+                # Use tiktoken directly for token estimation
+                import tiktoken
 
-                # Create a temporary embedding service for tokenization
-                if not hasattr(self, "_embedding_service"):
-                    self._embedding_service = EmbeddingService()
-
-                # Use the embedding service's tokenizer for accurate counting
-                token_estimate = self._embedding_service.estimate_tokens(content)
+                # Use OpenAI's tokenizer (cl100k_base) as approximation
+                encoding = tiktoken.get_encoding("cl100k_base")
+                token_estimate = len(encoding.encode(content))
 
                 self.logger.debug(
                     "Token count estimated using embedding service",
