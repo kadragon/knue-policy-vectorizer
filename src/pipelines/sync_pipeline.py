@@ -36,13 +36,12 @@ try:
         get_available_vector_providers,
     )
 except ImportError:  # pragma: no cover - fallback when executed as script
-    from providers import (  # type: ignore
-        EmbeddingProvider,
-        ProviderFactory,
-        VectorProvider,
-        get_available_embedding_providers,
-        get_available_vector_providers,
-    )
+    import sys
+    from pathlib import Path
+
+    project_root = Path(__file__).resolve().parents[2]
+    if str(project_root) not in sys.path:
+        sys.path.append(str(project_root))
 
     from src.config.config import Config  # type: ignore
     from src.config.config_manager import (  # type: ignore
@@ -66,6 +65,13 @@ except ImportError:  # pragma: no cover - fallback when executed as script
     from src.services.qdrant_service import QdrantService  # type: ignore
     from src.utils.logger import setup_logger  # type: ignore
     from src.utils.markdown_processor import MarkdownProcessor  # type: ignore
+    from src.utils.providers import (  # type: ignore
+        EmbeddingProvider,
+        ProviderFactory,
+        VectorProvider,
+        get_available_embedding_providers,
+        get_available_vector_providers,
+    )
 
 logger = structlog.get_logger(__name__)
 
@@ -1639,6 +1645,9 @@ def sync(
                 click.echo(f"❌ Failed files: {', '.join(result['failed_files'])}")
         else:
             click.echo("📋 No changes detected")
+
+        if result["status"] != "success":
+            raise click.ClickException("Sync finished with errors")
 
     except SyncError as e:
         click.echo(f"❌ Sync failed: {e}")

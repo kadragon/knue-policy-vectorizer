@@ -1,10 +1,9 @@
-"""
-Tests for CLI provider selection and configuration functionality
-"""
+"""Tests for CLI provider selection and configuration functionality"""
 
 import os
 from unittest.mock import Mock, patch
 
+import click
 import pytest
 from click.testing import CliRunner
 
@@ -187,7 +186,7 @@ class TestCLIProviders:
     @patch("src.config.config.Config.from_env")
     @patch("src.services.cloudflare_r2_service.CloudflareR2Service")
     @patch("src.pipelines.sync_pipeline.CloudflareR2SyncPipeline")
-    def test_sync_partial_failure_returns_nonzero_exit(
+    def test_sync_cloudflare_r2_partial_failure_returns_nonzero_exit(
         self,
         mock_pipeline,
         mock_service,
@@ -222,6 +221,40 @@ class TestCLIProviders:
 
         config.validate_r2.assert_called_once()
         mock_pipeline.assert_called_once()
+
+    @patch("src.pipelines.sync_pipeline.SyncPipeline")
+    @patch("src.config.config.Config.from_env")
+    def test_sync_partial_failure_returns_nonzero_exit(
+        self,
+        mock_config_from_env,
+        mock_pipeline,
+    ):
+        """Partial failures in main sync command should exit non-zero."""
+        from src.pipelines.sync_pipeline import sync
+
+        config = Config()
+        config.openai_api_key = "sk-test"
+        config.qdrant_api_key = "qdrant-key"
+        config.qdrant_cloud_url = "https://test.qdrant.tech"
+
+        mock_config_from_env.return_value = config
+
+        mock_instance = Mock()
+        mock_instance.health_check.return_value = True
+        mock_instance.sync.return_value = {
+            "status": "partial_success",
+            "changes_detected": True,
+            "upserted": 1,
+            "deleted": 0,
+            "renamed": 0,
+            "failed_files": ["file1.md"],
+        }
+        mock_pipeline.return_value = mock_instance
+
+        with pytest.raises(click.ClickException):
+            sync.callback()
+
+        mock_instance.sync.assert_called_once()
 
     def test_health_command_with_providers(self):
         """Test health command with different providers"""

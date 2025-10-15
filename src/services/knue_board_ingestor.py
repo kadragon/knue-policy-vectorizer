@@ -19,12 +19,8 @@ from urllib.parse import urljoin
 import requests
 import structlog
 
-try:  # Local imports for package and script contexts
-    from src.config.config import Config
-    from src.utils.providers import EmbeddingProvider, ProviderFactory
-except Exception:  # pragma: no cover
-    from src.config.config import Config  # type: ignore
-    from src.utils.providers import EmbeddingProvider, ProviderFactory  # type: ignore
+from src.config.config import Config
+from src.utils.providers import EmbeddingProvider, ProviderFactory
 
 logger = structlog.get_logger(__name__)
 
