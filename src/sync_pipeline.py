@@ -27,6 +27,10 @@ try:
         get_available_vector_providers,
     )
     from .qdrant_service import QdrantService
+    from .r2_sync_pipeline import (
+        CloudflareR2SyncError,
+        CloudflareR2SyncPipeline,
+    )
 except Exception:  # pragma: no cover - fallback when imported as a script
     from config import Config  # type: ignore
     from config_manager import (  # type: ignore
@@ -51,6 +55,10 @@ except Exception:  # pragma: no cover - fallback when imported as a script
         get_available_vector_providers,
     )
     from qdrant_service import QdrantService  # type: ignore
+    from r2_sync_pipeline import (  # type: ignore
+        CloudflareR2SyncError,
+        CloudflareR2SyncPipeline,
+    )
 
 logger = structlog.get_logger(__name__)
 
@@ -1872,6 +1880,44 @@ def sync(
 
     except SyncError as e:
         click.echo(f"❌ Sync failed: {e}")
+
+
+@main.command(name="sync-cloudflare-r2")
+@click.option("--config-file", help="Path to configuration file")
+def sync_cloudflare_r2(config_file: Optional[str] = None):
+    """Synchronize cleaned markdown documents to Cloudflare R2."""
+    config = Config.from_env() if config_file is None else Config()
+
+    try:
+        config.validate_r2()
+    except ValueError as e:
+        raise click.BadParameter(f"Cloudflare R2 configuration error: {e}")
+
+    pipeline = CloudflareR2SyncPipeline(config)
+
+    try:
+        result = pipeline.sync()
+    except CloudflareR2SyncError as e:
+        raise click.ClickException(f"Cloudflare R2 sync failed: {e}")
+
+    if result["status"] == "success":
+        click.echo("✅ Cloudflare R2 sync completed successfully")
+    elif result["status"] == "partial_success":
+        click.echo("⚠️ Cloudflare R2 sync completed with some failures")
+    else:
+        click.echo("❌ Cloudflare R2 sync failed")
+
+    if result["changes_detected"]:
+        click.echo(
+            f"📦 Objects: {result['uploaded']} uploaded, {result['deleted']} deleted, {result['renamed']} renamed"
+        )
+        if result["failed_files"]:
+            click.echo(f"❌ Failed paths: {', '.join(result['failed_files'])}")
+    else:
+        click.echo("📋 No markdown changes detected")
+
+    if result["status"] != "success":
+        raise click.ClickException("Cloudflare R2 sync finished with errors")
 
 
 @main.command()

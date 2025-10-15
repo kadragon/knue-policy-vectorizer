@@ -127,6 +127,91 @@ class TestCLIProviders:
         assert result.exit_code == 0
         assert "No changes detected" in result.output
 
+    def test_sync_cloudflare_r2_command(self):
+        """Cloudflare R2 sync command should validate config and run pipeline."""
+        from src.sync_pipeline import main
+
+        config = Config()
+        config.cloudflare_account_id = "account123"
+        config.cloudflare_r2_access_key_id = "access"
+        config.cloudflare_r2_secret_access_key = "secret"
+        config.cloudflare_r2_bucket = "knue-vectorstore"
+        config.cloudflare_r2_endpoint = "https://account123.r2.cloudflarestorage.com"
+        config.validate_r2 = Mock()
+
+        with patch("src.sync_pipeline.Config.from_env", return_value=config):
+            with patch("src.sync_pipeline.CloudflareR2SyncPipeline") as mock_pipeline:
+                mock_instance = Mock()
+                mock_instance.sync.return_value = {
+                    "status": "success",
+                    "changes_detected": True,
+                    "uploaded": 2,
+                    "deleted": 1,
+                    "renamed": 0,
+                    "failed_files": [],
+                }
+                mock_pipeline.return_value = mock_instance
+
+                result = self.runner.invoke(main, ["sync-cloudflare-r2"])
+
+        assert result.exit_code == 0
+        config.validate_r2.assert_called_once()
+        mock_pipeline.assert_called_once()
+        assert "Cloudflare R2 sync completed successfully" in result.output
+        assert "Objects: 2 uploaded" in result.output
+
+    def test_sync_partial_failure_returns_nonzero_exit(self):
+        """Partial sync failures should surface as a warning."""
+        from src.sync_pipeline import main
+
+        with patch("src.sync_pipeline.SyncPipeline") as mock_pipeline:
+            mock_instance = Mock()
+            mock_instance.health_check.return_value = True
+            mock_instance.sync.return_value = {
+                "status": "partial_success",
+                "changes_detected": True,
+                "upserted": 1,
+                "deleted": 0,
+                "renamed": 0,
+                "failed_files": ["policies/rule.md"],
+            }
+            mock_pipeline.return_value = mock_instance
+
+            result = self.runner.invoke(main, ["sync"])
+
+        assert result.exit_code == 0
+        assert "some failures" in result.output
+
+    def test_sync_cloudflare_r2_partial_failure_nonzero_exit(self):
+        """R2 sync should exit with error when failures occur."""
+        from src.sync_pipeline import main
+
+        config = Config()
+        config.cloudflare_account_id = "account123"
+        config.cloudflare_r2_access_key_id = "access"
+        config.cloudflare_r2_secret_access_key = "secret"
+        config.cloudflare_r2_bucket = "knue-vectorstore"
+        config.cloudflare_r2_endpoint = "https://account123.r2.cloudflarestorage.com"
+        config.validate_r2 = Mock()
+
+        with patch("src.sync_pipeline.Config.from_env", return_value=config):
+            with patch("src.sync_pipeline.CloudflareR2SyncPipeline") as mock_pipeline:
+                mock_instance = Mock()
+                mock_instance.sync.return_value = {
+                    "status": "partial_success",
+                    "changes_detected": True,
+                    "uploaded": 1,
+                    "deleted": 0,
+                    "renamed": 0,
+                    "failed_files": ["policies/rule.md"],
+                }
+                mock_pipeline.return_value = mock_instance
+
+                result = self.runner.invoke(main, ["sync-cloudflare-r2"])
+
+        assert result.exit_code == 1
+        assert "Error: Cloudflare R2 sync finished with errors" in result.output
+
     def test_health_command_with_providers(self):
         """Test health command with different providers"""
         from src.sync_pipeline import main

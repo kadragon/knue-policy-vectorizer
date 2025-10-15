@@ -142,3 +142,43 @@ def test_invalid_integer_env_values_raise(monkeypatch):
 
     with pytest.raises(ValueError):
         _ = Config.from_env()
+
+
+def test_r2_configuration_loaded_and_validated(monkeypatch):
+    from config import Config
+
+    # Clear any existing R2 envs
+    for key in [
+        "CLOUDFLARE_ACCOUNT_ID",
+        "CLOUDFLARE_R2_ACCESS_KEY_ID",
+        "CLOUDFLARE_R2_SECRET_ACCESS_KEY",
+        "CLOUDFLARE_R2_BUCKET",
+        "CLOUDFLARE_R2_ENDPOINT",
+        "CLOUDFLARE_R2_KEY_PREFIX",
+    ]:
+        monkeypatch.delenv(key, raising=False)
+
+    monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "account123")
+    monkeypatch.setenv("CLOUDFLARE_R2_ACCESS_KEY_ID", "access123")
+    monkeypatch.setenv("CLOUDFLARE_R2_SECRET_ACCESS_KEY", "secret456")
+    monkeypatch.setenv("CLOUDFLARE_R2_BUCKET", "knue-vectorstore")
+    monkeypatch.setenv(
+        "CLOUDFLARE_R2_ENDPOINT",
+        "https://account123.r2.cloudflarestorage.com/knue-vectorstore",
+    )
+    monkeypatch.setenv("CLOUDFLARE_R2_KEY_PREFIX", "policies")
+
+    cfg = Config.from_env()
+    assert cfg.cloudflare_account_id == "account123"
+    assert cfg.cloudflare_r2_access_key_id == "access123"
+    assert cfg.cloudflare_r2_bucket == "knue-vectorstore"
+    assert cfg.cloudflare_r2_key_prefix == "policies"
+
+    # Validation should pass with all values present
+    cfg.validate_r2()
+
+    # Remove one value and expect validation error
+    monkeypatch.delenv("CLOUDFLARE_R2_BUCKET", raising=False)
+    cfg_missing = Config.from_env()
+    with pytest.raises(ValueError):
+        cfg_missing.validate_r2()

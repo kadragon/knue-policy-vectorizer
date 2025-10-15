@@ -79,6 +79,29 @@ TOML frontmatter 테스트"""
         result = processor.remove_frontmatter(markdown_with_toml)
         assert result == expected_content
 
+    def test_remove_frontmatter_returns_metadata(self):
+        """Frontmatter removal should optionally return parsed metadata."""
+        from markdown_processor import MarkdownProcessor
+
+        processor = MarkdownProcessor()
+
+        markdown = """---
+title: "Test Policy"
+tags:
+  - regulation
+  - university
+---
+
+# 헤더
+
+내용"""
+
+        content, metadata = processor.remove_frontmatter(markdown, return_metadata=True)
+
+        assert content.startswith("# 헤더")
+        assert metadata["title"] == "Test Policy"
+        assert metadata["tags"] == ["regulation", "university"]
+
     def test_extract_title_from_h1(self):
         """Test extracting title from H1 heading."""
         from markdown_processor import MarkdownProcessor
@@ -247,6 +270,7 @@ category: education
         assert "content" in result
         assert "title" in result
         assert "filename" in result
+        assert "frontmatter" in result
 
         # Content should be cleaned (no frontmatter, cleaned whitespace)
         assert "---" not in result["content"]
@@ -257,6 +281,10 @@ category: education
 
         # Filename should be stored
         assert result["filename"] == filename
+
+        # Frontmatter preserved separately
+        assert result["frontmatter"]["title"] == "한국교원대학교 학칙"
+        assert result["frontmatter"]["category"] == "education"
 
     def test_generate_metadata(self):
         """Test metadata generation for processed documents."""

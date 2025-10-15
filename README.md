@@ -173,6 +173,15 @@ uv run python -m src.sync_pipeline sync
 #   - Skipped: 97 files (no changes)
 ```
 
+#### Cloudflare R2 동기화
+
+```bash
+uv run python -m src.sync_pipeline sync-cloudflare-r2
+# 출력: Cloudflare R2 전용 업로드/삭제 결과와 객체 수
+```
+
+> ⚠️ `sync-cloudflare-r2` 명령은 Cloudflare 업로드/삭제 실패 시 즉시 종료(exit code 1)하며 자세한 오류 로그를 출력합니다.
+
 #### 3. 전체 재인덱싱
 
 ```bash
@@ -277,6 +286,17 @@ QDRANT_URL=http://localhost:6333
 # Qdrant Cloud 설정 (NEW)
 QDRANT_CLOUD_URL=https://your-cluster.qdrant.tech  # Qdrant Cloud URL
 QDRANT_API_KEY=your-api-key      # Qdrant Cloud API 키
+
+# Cloudflare R2 (Markdown 동기화, 명령어: sync-cloudflare-r2)
+CLOUDFLARE_ACCOUNT_ID=your-account-id
+CLOUDFLARE_R2_ACCESS_KEY_ID=your-access-key
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=your-secret-key
+CLOUDFLARE_R2_BUCKET=knue-vectorstore
+CLOUDFLARE_R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com/knue-vectorstore
+# 선택 사항
+# CLOUDFLARE_R2_KEY_PREFIX=policies/
+# CLOUDFLARE_R2_SOFT_DELETE_ENABLED=false
+# CLOUDFLARE_R2_SOFT_DELETE_PREFIX=deleted/
 
 # 컬렉션 설정
 COLLECTION_NAME=knue_policies
