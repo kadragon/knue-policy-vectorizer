@@ -13,7 +13,7 @@ import structlog
 try:
     from .config import Config
     from .config_manager import ConfigProfile, ConfigTemplate, ConfigurationManager
-    from .embedding_service import EmbeddingService
+    from .embedding_service_openai import OpenAIEmbeddingService
     from .git_watcher import GitWatcher
     from .knue_board_ingestor import KnueBoardIngestor
     from .logger import setup_logger
@@ -27,14 +27,18 @@ try:
         get_available_vector_providers,
     )
     from .qdrant_service import QdrantService
-except Exception:  # pragma: no cover - fallback when imported as a script
+    from .r2_sync_pipeline import (
+        CloudflareR2SyncError,
+        CloudflareR2SyncPipeline,
+    )
+except ImportError:  # pragma: no cover - fallback when executed as script
     from config import Config  # type: ignore
     from config_manager import (  # type: ignore
         ConfigProfile,
         ConfigTemplate,
         ConfigurationManager,
     )
-    from embedding_service import EmbeddingService  # type: ignore
+    from embedding_service_openai import OpenAIEmbeddingService  # type: ignore
     from git_watcher import GitWatcher  # type: ignore
     from knue_board_ingestor import KnueBoardIngestor  # type: ignore
     from logger import setup_logger  # type: ignore
@@ -51,6 +55,10 @@ except Exception:  # pragma: no cover - fallback when imported as a script
         get_available_vector_providers,
     )
     from qdrant_service import QdrantService  # type: ignore
+    from r2_sync_pipeline import (  # type: ignore
+        CloudflareR2SyncError,
+        CloudflareR2SyncPipeline,
+    )
 
 logger = structlog.get_logger(__name__)
 
@@ -613,14 +621,6 @@ def configure_providers():
         )
         # Use default base URL from current config without prompting to keep tests simple
         config_dict["openai_base_url"] = current_config.openai_base_url
-    elif embedding_provider == EmbeddingProvider.OLLAMA:
-        # Do not prompt for URL in interactive flow to match tests; keep existing
-        config_dict["ollama_url"] = current_config.ollama_url
-        config_dict["embedding_model"] = click.prompt(
-            "Ollama Model",
-            default=current_config.embedding_model,
-            show_default=True,
-        )
 
     # Vector provider selection
     click.echo("\n🗄️ Select Vector Provider:")
@@ -656,10 +656,6 @@ def configure_providers():
             hide_input=True,
             show_default=False,
         )
-    elif vector_provider == VectorProvider.QDRANT_LOCAL:
-        config_dict["qdrant_url"] = click.prompt(
-            "Qdrant Local URL", default=current_config.qdrant_url, show_default=True
-        )
 
     # Create new config and validate
     new_config = Config(**{**current_config.to_dict(), **config_dict})
@@ -677,38 +673,7 @@ def configure_providers():
     click.echo(f"  Vector Provider: {new_config.vector_provider}")
 
     if click.confirm("\nSave this configuration?"):
-        # Ask user if they want to include secrets (dangerous)
-        include_secrets = False
-        if any([new_config.openai_api_key, new_config.qdrant_api_key]):
-            click.echo("\n⚠️  WARNING: Your configuration contains sensitive API keys.")
-            click.echo(
-                "By default, these will be masked in the .env file for security."
-            )
-            if click.confirm(
-                "Do you want to include actual API keys? (NOT RECOMMENDED)",
-                default=False,
-            ):
-                click.echo(
-                    "⚠️  API keys will be stored in clear text. Keep this file secure!"
-                )
-                include_secrets = True
-
-        # Generate .env content and save to default path
-        env_content = _generate_env_content(new_config, include_secrets=include_secrets)
-        save_path = ".env"
-        try:
-            with open(save_path, "w") as f:
-                f.write(env_content)
-            if include_secrets:
-                # Set secure file permissions
-                import os
-
-                os.chmod(save_path, 0o600)
-                click.echo("Configuration saved with secure permissions (600)")
-            else:
-                click.echo("Configuration saved with masked credentials")
-        except Exception as e:
-            click.echo(f"❌ Failed to save configuration: {e}")
+        click.echo("❌ Configuration saving to .env is disabled for security reasons")
     else:
         click.echo("❌ Configuration not saved")
 
@@ -723,10 +688,7 @@ def show_config():
 
         click.echo("📊 Embedding Provider:")
         click.echo(f"  Provider: {config.embedding_provider}")
-        if config.embedding_provider == EmbeddingProvider.OLLAMA:
-            click.echo(f"  URL: {config.ollama_url}")
-            click.echo(f"  Model: {config.embedding_model}")
-        elif config.embedding_provider == EmbeddingProvider.OPENAI:
+        if config.embedding_provider == EmbeddingProvider.OPENAI:
             click.echo(f"  Model: {config.openai_model}")
             click.echo(f"  Base URL: {config.openai_base_url}")
             api_key_preview = (
@@ -738,9 +700,7 @@ def show_config():
 
         click.echo("\n🗄️ Vector Provider:")
         click.echo(f"  Provider: {config.vector_provider}")
-        if config.vector_provider == VectorProvider.QDRANT_LOCAL:
-            click.echo(f"  URL: {config.qdrant_url}")
-        elif config.vector_provider == VectorProvider.QDRANT_CLOUD:
+        if config.vector_provider == VectorProvider.QDRANT_CLOUD:
             click.echo(f"  URL: {config.qdrant_cloud_url}")
             api_key_preview = (
                 config.qdrant_api_key[:8] + "..."
@@ -843,20 +803,20 @@ def test_providers(
 
 @main.command(name="migrate")
 @click.option(
-    "--from-embedding", required=True, help="Source embedding provider (ollama|openai)"
+    "--from-embedding", required=True, help="Source embedding provider (openai)"
 )
 @click.option(
     "--from-vector",
     required=True,
-    help="Source vector provider (qdrant_local|qdrant_cloud)",
+    help="Source vector provider (qdrant_cloud)",
 )
 @click.option(
-    "--to-embedding", required=True, help="Target embedding provider (ollama|openai)"
+    "--to-embedding", required=True, help="Target embedding provider (openai)"
 )
 @click.option(
     "--to-vector",
     required=True,
-    help="Target vector provider (qdrant_local|qdrant_cloud)",
+    help="Target vector provider (qdrant_cloud)",
 )
 @click.option("--batch-size", default=50, help="Migration batch size")
 @click.option(
@@ -1498,103 +1458,6 @@ def list_config_backups():
         click.echo()
 
 
-@main.command(name="config-export")
-@click.option("--format", default="env", help="Export format (env, json, yaml)")
-@click.option("--output", "-o", help="Output file")
-@click.option("--include-secrets", is_flag=True, help="Include sensitive values")
-@click.option("--config-file", help="Configuration file to export")
-def export_config(
-    format: str,
-    output: Optional[str] = None,
-    include_secrets: bool = False,
-    config_file: Optional[str] = None,
-):
-    """Export configuration in various formats."""
-    click.echo(f"📤 Exporting Configuration ({format.upper()})\n")
-
-    if config_file:
-        # Load from file
-        try:
-            with open(config_file, "r") as f:
-                config_dict = json.load(f)
-            config = Config.from_dict(config_dict)
-        except Exception as e:
-            click.echo(f"❌ Failed to load configuration file: {e}")
-            return
-    else:
-        # Use current environment
-        try:
-            config = Config.from_env()
-        except Exception as e:
-            click.echo(f"❌ Failed to load configuration from environment: {e}")
-            return
-
-    config_manager = ConfigurationManager()
-
-    if not include_secrets:
-        click.echo("✅ Sensitive values will be masked for security")
-    else:
-        click.echo("⚠️  WARNING: Exporting with sensitive credentials in clear text!")
-        click.echo(
-            "   Ensure proper file permissions and do not commit to version control."
-        )
-
-    try:
-        content = config_manager.export_config(
-            config, format=format, include_secrets=include_secrets
-        )
-
-        if output:
-            with open(output, "w") as f:
-                f.write(content)
-            click.echo(f"✅ Configuration exported to: {output}")
-        else:
-            click.echo(f"📄 Configuration Content:")
-            click.echo("=" * 50)
-            click.echo(content)
-            click.echo("=" * 50)
-
-    except Exception as e:
-        click.echo(f"❌ Export failed: {e}")
-
-
-@main.command(name="save-config")
-@click.option("--output", "-o", required=True, help="Output .env file path")
-@click.option(
-    "--include-secrets", is_flag=True, help="Include sensitive values (NOT RECOMMENDED)"
-)
-@click.pass_context
-def save_config_file(ctx: click.Context, output: str, include_secrets: bool = False):
-    """Save current or provided Config to an .env file."""
-    try:
-        config: Config = ctx.obj if isinstance(ctx.obj, Config) else Config.from_env()
-
-        if include_secrets:
-            click.echo(
-                "⚠️  WARNING: Sensitive credentials will be stored in clear text!"
-            )
-            if not click.confirm("Are you sure you want to continue?", default=False):
-                click.echo("❌ Operation cancelled")
-                return
-
-        content = _generate_env_content(config, include_secrets=include_secrets)
-        with open(output, "w") as f:
-            f.write(content)
-
-        if include_secrets:
-            # Set secure file permissions
-            import os
-
-            os.chmod(output, 0o600)
-            click.echo(
-                f"✅ Configuration saved to {output} with secure permissions (600)"
-            )
-        else:
-            click.echo(f"✅ Configuration saved to {output} with masked credentials")
-    except Exception as e:
-        click.echo(f"❌ Failed to save configuration: {e}")
-
-
 @main.command(name="load-config")
 @click.option("--config-file", required=True, help=".env file to load")
 def load_config_file(config_file: str):
@@ -1627,17 +1490,36 @@ def import_config(config_file: str):
             data = json.load(f)
         cfg = Config.from_dict(data)
         # Set env vars to reflect imported config
-        # Note: We need actual values here to set environment variables
-        env_content = _generate_env_content(cfg, include_secrets=True)
-        # Load the generated env content into current process env
-        for line in env_content.splitlines():
-            if not line or line.strip().startswith("#") or "=" not in line:
-                continue
-            key, val = line.split("=", 1)
-            # Skip masked values
-            if "***MASKED***" in val:
-                continue
-            os.environ[key.strip()] = val.strip().strip('"')
+        os.environ["EMBEDDING_PROVIDER"] = cfg.embedding_provider.value
+        os.environ["VECTOR_PROVIDER"] = cfg.vector_provider.value
+        if cfg.embedding_provider == EmbeddingProvider.OPENAI:
+            os.environ["OPENAI_API_KEY"] = cfg.openai_api_key
+            os.environ["OPENAI_MODEL"] = cfg.openai_model
+            os.environ["OPENAI_BASE_URL"] = cfg.openai_base_url
+        if cfg.vector_provider == VectorProvider.QDRANT_CLOUD:
+            os.environ["QDRANT_CLOUD_URL"] = cfg.qdrant_cloud_url
+            os.environ["QDRANT_API_KEY"] = cfg.qdrant_api_key
+        os.environ["COLLECTION_NAME"] = cfg.qdrant_collection
+        os.environ["VECTOR_SIZE"] = str(cfg.vector_size)
+        os.environ["MAX_TOKEN_LENGTH"] = str(cfg.max_tokens)
+        os.environ["LOG_LEVEL"] = cfg.log_level
+        os.environ["GIT_REPO_URL"] = cfg.repo_url
+        os.environ["GIT_BRANCH"] = cfg.branch
+        os.environ["MAX_WORKERS"] = str(cfg.max_workers)
+        os.environ["CLOUDFLARE_ACCOUNT_ID"] = cfg.cloudflare_account_id
+        os.environ["CLOUDFLARE_R2_ACCESS_KEY_ID"] = cfg.cloudflare_r2_access_key_id
+        os.environ["CLOUDFLARE_R2_SECRET_ACCESS_KEY"] = (
+            cfg.cloudflare_r2_secret_access_key
+        )
+        os.environ["CLOUDFLARE_R2_BUCKET"] = cfg.cloudflare_r2_bucket
+        os.environ["CLOUDFLARE_R2_ENDPOINT"] = cfg.cloudflare_r2_endpoint
+        os.environ["CLOUDFLARE_R2_KEY_PREFIX"] = cfg.cloudflare_r2_key_prefix
+        os.environ["CLOUDFLARE_R2_SOFT_DELETE_ENABLED"] = str(
+            cfg.cloudflare_r2_soft_delete_enabled
+        ).lower()
+        os.environ["CLOUDFLARE_R2_SOFT_DELETE_PREFIX"] = (
+            cfg.cloudflare_r2_soft_delete_prefix
+        )
         click.echo("✅ Configuration imported successfully")
     except Exception as e:
         click.echo(f"❌ Failed to import configuration: {e}")
@@ -1677,125 +1559,6 @@ def cleanup_config_backups(keep_days: int, dry_run: bool):
             click.echo(f"✅ Cleaned up {removed_count} old backups")
         else:
             click.echo("❌ Cleanup cancelled")
-
-
-def _generate_env_content(config: Config, include_secrets: bool = False) -> str:
-    """
-    Generate .env file content from configuration.
-
-    Args:
-        config: Configuration object
-        include_secrets: If True, include actual API keys. If False, mask them.
-                        WARNING: Setting this to True exposes sensitive credentials in clear text.
-
-    Returns:
-        String content for .env file
-    """
-
-    def _mask_secret(value: str) -> str:
-        """Mask sensitive value for security"""
-        if not value:
-            return ""
-        return (
-            f"***MASKED*** (first 4 chars: {value[:4]}...)"
-            if len(value) > 4
-            else "***MASKED***"
-        )
-
-    lines = [
-        "# Multi-Provider Configuration",
-        "# Generated by KNUE Policy Vectorizer",
-        "",
-    ]
-
-    if not include_secrets:
-        lines.extend(
-            [
-                "# WARNING: Sensitive values are masked for security",
-                "# Use --include-secrets flag with caution to export actual credentials",
-                "",
-            ]
-        )
-    else:
-        lines.extend(
-            [
-                "# WARNING: This file contains sensitive credentials in clear text!",
-                "# Do not commit this file to version control or share it publicly.",
-                "# Restrict file permissions: chmod 600 .env",
-                "",
-            ]
-        )
-
-    lines.extend(
-        [
-            "# Provider Selection",
-            f"EMBEDDING_PROVIDER={config.embedding_provider}",
-            f"VECTOR_PROVIDER={config.vector_provider}",
-            "",
-        ]
-    )
-
-    if config.embedding_provider == EmbeddingProvider.OPENAI:
-        openai_api_key = (
-            config.openai_api_key
-            if include_secrets
-            else _mask_secret(config.openai_api_key)
-        )
-        lines.extend(
-            [
-                "# OpenAI Configuration",
-                f"OPENAI_API_KEY={openai_api_key}",
-                f"OPENAI_MODEL={config.openai_model}",
-                f"OPENAI_BASE_URL={config.openai_base_url}",
-                "",
-            ]
-        )
-
-    if config.embedding_provider == EmbeddingProvider.OLLAMA:
-        lines.extend(
-            [
-                "# Ollama Configuration",
-                f"OLLAMA_URL={config.ollama_url}",
-                f"OLLAMA_MODEL={config.embedding_model}",
-                "",
-            ]
-        )
-
-    if config.vector_provider == VectorProvider.QDRANT_CLOUD:
-        qdrant_api_key = (
-            config.qdrant_api_key
-            if include_secrets
-            else _mask_secret(config.qdrant_api_key)
-        )
-        lines.extend(
-            [
-                "# Qdrant Cloud Configuration",
-                f"QDRANT_CLOUD_URL={config.qdrant_cloud_url}",
-                f"QDRANT_API_KEY={qdrant_api_key}",
-                "",
-            ]
-        )
-
-    if config.vector_provider == VectorProvider.QDRANT_LOCAL:
-        lines.extend(
-            [
-                "# Qdrant Local Configuration",
-                f"QDRANT_URL={config.qdrant_url}",
-                "",
-            ]
-        )
-
-    lines.extend(
-        [
-            "# Common Settings",
-            f"COLLECTION_NAME={config.qdrant_collection}",
-            f"VECTOR_SIZE={config.vector_size}",
-            f"MAX_TOKEN_LENGTH={config.max_tokens}",
-            f"LOG_LEVEL={config.log_level}",
-        ]
-    )
-
-    return "\n".join(lines)
 
 
 @main.command()
@@ -1872,6 +1635,44 @@ def sync(
 
     except SyncError as e:
         click.echo(f"❌ Sync failed: {e}")
+
+
+@main.command(name="sync-cloudflare-r2")
+@click.option("--config-file", help="Path to configuration file")
+def sync_cloudflare_r2(config_file: Optional[str] = None):
+    """Synchronize cleaned markdown documents to Cloudflare R2."""
+    config = Config.from_env() if config_file is None else Config()
+
+    try:
+        config.validate_r2()
+    except ValueError as e:
+        raise click.BadParameter(f"Cloudflare R2 configuration error: {e}")
+
+    pipeline = CloudflareR2SyncPipeline(config)
+
+    try:
+        result = pipeline.sync()
+    except CloudflareR2SyncError as e:
+        raise click.ClickException(f"Cloudflare R2 sync failed: {e}")
+
+    if result["status"] == "success":
+        click.echo("✅ Cloudflare R2 sync completed successfully")
+    elif result["status"] == "partial_success":
+        click.echo("⚠️ Cloudflare R2 sync completed with some failures")
+    else:
+        click.echo("❌ Cloudflare R2 sync failed")
+
+    if result["changes_detected"]:
+        click.echo(
+            f"📦 Objects: {result['uploaded']} uploaded, {result['deleted']} deleted, {result['renamed']} renamed"
+        )
+        if result["failed_files"]:
+            click.echo(f"❌ Failed paths: {', '.join(result['failed_files'])}")
+    else:
+        click.echo("📋 No markdown changes detected")
+
+    if result["status"] != "success":
+        raise click.ClickException("Cloudflare R2 sync finished with errors")
 
 
 @main.command()
@@ -2038,11 +1839,7 @@ def board_sync(board_idx: tuple[int, ...]):
     click.echo(
         f"📚 Boards: {', '.join(str(i) for i in indices)} | Collection: {config.qdrant_board_collection}"
     )
-    model_name = (
-        config.openai_model
-        if str(config.embedding_provider) == "openai"
-        else config.embedding_model
-    )
+    model_name = config.openai_model
     click.echo(f"🔤 Embedding: {config.embedding_provider} ({model_name})")
 
     try:
@@ -2104,11 +1901,7 @@ def board_reindex(board_idx: tuple[int, ...], drop_collection: Optional[bool]):
     click.echo(
         f"📚 Boards: {', '.join(str(i) for i in indices)} | Collection: {config.qdrant_board_collection}"
     )
-    model_name = (
-        config.openai_model
-        if str(config.embedding_provider) == "openai"
-        else config.embedding_model
-    )
+    model_name = config.openai_model
     click.echo(f"🔤 Embedding: {config.embedding_provider} ({model_name})")
     click.echo(
         f"🧹 Drop collection: {'yes' if drop_collection else 'no'} | Mode: full ingest"

@@ -1,3 +1,4 @@
+# CONFIG GROUP - Configuration management and settings
 import json
 import os
 from dataclasses import dataclass, field
@@ -21,13 +22,12 @@ class Config:
     repo_cache_dir: str = "./repo_cache"
 
     # Provider selection
-    embedding_provider: EmbeddingProvider = EmbeddingProvider.OLLAMA
-    vector_provider: VectorProvider = VectorProvider.QDRANT_LOCAL
+    embedding_provider: EmbeddingProvider = EmbeddingProvider.OPENAI
+    vector_provider: VectorProvider = VectorProvider.QDRANT_CLOUD
 
-    # Qdrant settings (local)
-    qdrant_url: str = "http://localhost:6333"
+    # Qdrant settings (cloud)
     qdrant_collection: str = "knue_policies"
-    vector_size: int = 1024
+    vector_size: int = 1536
 
     # Qdrant collection for KNUE web boards
     qdrant_board_collection: str = "www-board-data"
@@ -37,9 +37,15 @@ class Config:
     qdrant_api_key: str = ""
     qdrant_cluster_region: str = ""
 
-    # Ollama settings
-    ollama_url: str = "http://localhost:11434"
-    embedding_model: str = "bge-m3"
+    # Cloudflare R2 settings
+    cloudflare_account_id: str = ""
+    cloudflare_r2_access_key_id: str = ""
+    cloudflare_r2_secret_access_key: str = ""
+    cloudflare_r2_bucket: str = ""
+    cloudflare_r2_endpoint: str = ""
+    cloudflare_r2_key_prefix: str = ""
+    cloudflare_r2_soft_delete_enabled: bool = False
+    cloudflare_r2_soft_delete_prefix: str = "deleted/"
 
     # OpenAI settings
     openai_api_key: str = ""
@@ -49,7 +55,7 @@ class Config:
     # Processing settings
     max_workers: int = 4
     max_document_chars: int = 30000
-    max_tokens: int = 8192  # Maximum tokens for embedding service (bge-m3 limit)
+    max_tokens: int = 8192  # Maximum tokens for embedding service
     chunk_threshold: int = 800  # Chunking threshold for better semantic search
     chunk_overlap: int = 200  # Overlap tokens between chunks for context continuity
 
@@ -134,28 +140,20 @@ class Config:
         embedding_provider_str = os.getenv("EMBEDDING_PROVIDER")
         if not embedding_provider_str:
             if (
-                os.getenv("OLLAMA_URL")
-                or os.getenv("OLLAMA_MODEL")
-                or os.getenv("EMBEDDING_MODEL")
-            ):
-                embedding_provider_str = "ollama"
-            elif (
                 os.getenv("OPENAI_API_KEY")
                 or os.getenv("OPENAI_MODEL")
                 or os.getenv("OPENAI_BASE_URL")
             ):
                 embedding_provider_str = "openai"
             else:
-                embedding_provider_str = "ollama"
+                embedding_provider_str = "openai"
 
         vector_provider_str = os.getenv("VECTOR_PROVIDER")
         if not vector_provider_str:
-            if os.getenv("QDRANT_URL"):
-                vector_provider_str = "qdrant_local"
-            elif os.getenv("QDRANT_CLOUD_URL") or os.getenv("QDRANT_API_KEY"):
+            if os.getenv("QDRANT_CLOUD_URL") or os.getenv("QDRANT_API_KEY"):
                 vector_provider_str = "qdrant_cloud"
             else:
-                vector_provider_str = "qdrant_local"
+                vector_provider_str = "qdrant_cloud"
 
         try:
             embedding_provider = EmbeddingProvider(embedding_provider_str)
@@ -167,8 +165,6 @@ class Config:
         except ValueError:
             raise ValueError(f"Invalid vector provider: {vector_provider_str}")
 
-        # Qdrant settings (local)
-        qdrant_url = os.getenv("QDRANT_URL", cls.qdrant_url)
         qdrant_collection = cls._get_env_str(
             "COLLECTION_NAME", "QDRANT_COLLECTION", cls.qdrant_collection
         )
@@ -181,16 +177,39 @@ class Config:
             "QDRANT_CLUSTER_REGION", cls.qdrant_cluster_region
         )
 
-        # Ollama settings
-        ollama_url = os.getenv("OLLAMA_URL", cls.ollama_url)
-        embedding_model = cls._get_env_str(
-            "OLLAMA_MODEL", "EMBEDDING_MODEL", cls.embedding_model
-        )
-
         # OpenAI settings
         openai_api_key = os.getenv("OPENAI_API_KEY", cls.openai_api_key)
         openai_model = os.getenv("OPENAI_MODEL", cls.openai_model)
         openai_base_url = os.getenv("OPENAI_BASE_URL", cls.openai_base_url)
+
+        # Cloudflare R2 settings
+        cloudflare_account_id = os.getenv(
+            "CLOUDFLARE_ACCOUNT_ID", cls.cloudflare_account_id
+        )
+        cloudflare_r2_access_key_id = os.getenv(
+            "CLOUDFLARE_R2_ACCESS_KEY_ID", cls.cloudflare_r2_access_key_id
+        )
+        cloudflare_r2_secret_access_key = os.getenv(
+            "CLOUDFLARE_R2_SECRET_ACCESS_KEY", cls.cloudflare_r2_secret_access_key
+        )
+        cloudflare_r2_bucket = os.getenv(
+            "CLOUDFLARE_R2_BUCKET", cls.cloudflare_r2_bucket
+        )
+        cloudflare_r2_endpoint = os.getenv(
+            "CLOUDFLARE_R2_ENDPOINT", cls.cloudflare_r2_endpoint
+        )
+        cloudflare_r2_key_prefix = os.getenv(
+            "CLOUDFLARE_R2_KEY_PREFIX", cls.cloudflare_r2_key_prefix
+        )
+        cloudflare_r2_soft_delete_prefix = os.getenv(
+            "CLOUDFLARE_R2_SOFT_DELETE_PREFIX", cls.cloudflare_r2_soft_delete_prefix
+        )
+        cloudflare_r2_soft_delete_env = os.getenv(
+            "CLOUDFLARE_R2_SOFT_DELETE_ENABLED", "false"
+        )
+        cloudflare_r2_soft_delete_enabled = str(
+            cloudflare_r2_soft_delete_env
+        ).lower() in {"1", "true", "yes", "on"}
 
         # Processing settings
         max_workers = cls._get_env_int("MAX_WORKERS", default_value=cls.max_workers)
@@ -279,15 +298,12 @@ class Config:
             repo_cache_dir=repo_cache_dir,
             embedding_provider=embedding_provider,
             vector_provider=vector_provider,
-            qdrant_url=qdrant_url,
             qdrant_collection=qdrant_collection,
             vector_size=vector_size,
             qdrant_board_collection=qdrant_board_collection,
             qdrant_cloud_url=qdrant_cloud_url,
             qdrant_api_key=qdrant_api_key,
             qdrant_cluster_region=qdrant_cluster_region,
-            ollama_url=ollama_url,
-            embedding_model=embedding_model,
             openai_api_key=openai_api_key,
             openai_model=openai_model,
             openai_base_url=openai_base_url,
@@ -307,6 +323,14 @@ class Config:
             board_embed_retry_max=board_embed_retry_max,
             board_embed_backoff_base=board_embed_backoff_base,
             log_level=log_level,
+            cloudflare_account_id=cloudflare_account_id,
+            cloudflare_r2_access_key_id=cloudflare_r2_access_key_id,
+            cloudflare_r2_secret_access_key=cloudflare_r2_secret_access_key,
+            cloudflare_r2_bucket=cloudflare_r2_bucket,
+            cloudflare_r2_endpoint=cloudflare_r2_endpoint,
+            cloudflare_r2_key_prefix=cloudflare_r2_key_prefix,
+            cloudflare_r2_soft_delete_enabled=cloudflare_r2_soft_delete_enabled,
+            cloudflare_r2_soft_delete_prefix=cloudflare_r2_soft_delete_prefix,
         )
 
     def get_provider_config(self) -> ProviderConfig:
@@ -318,13 +342,7 @@ class Config:
 
     def get_embedding_service_config(self) -> Dict[str, Any]:
         """Get configuration dictionary for embedding service"""
-        if self.embedding_provider == EmbeddingProvider.OLLAMA:
-            return {
-                "ollama_url": self.ollama_url,
-                "model": self.embedding_model,
-                "max_tokens": self.max_tokens,
-            }
-        elif self.embedding_provider == EmbeddingProvider.OPENAI:
+        if self.embedding_provider == EmbeddingProvider.OPENAI:
             return {
                 "api_key": self.openai_api_key,
                 "model": self.openai_model,
@@ -338,9 +356,7 @@ class Config:
 
     def get_vector_service_config(self) -> Dict[str, Any]:
         """Get configuration dictionary for vector service"""
-        if self.vector_provider == VectorProvider.QDRANT_LOCAL:
-            return {"url": self.qdrant_url}
-        elif self.vector_provider == VectorProvider.QDRANT_CLOUD:
+        if self.vector_provider == VectorProvider.QDRANT_CLOUD:
             return {"url": self.qdrant_cloud_url, "api_key": self.qdrant_api_key}
         else:
             raise ValueError(f"Unsupported vector provider: {self.vector_provider}")
@@ -365,6 +381,23 @@ class Config:
                     "Qdrant Cloud URL is required when using Qdrant Cloud provider"
                 )
 
+    def validate_r2(self) -> None:
+        """Validate Cloudflare R2 configuration before enabling sync."""
+        required_fields = {
+            "CLOUDFLARE_ACCOUNT_ID": self.cloudflare_account_id,
+            "CLOUDFLARE_R2_ACCESS_KEY_ID": self.cloudflare_r2_access_key_id,
+            "CLOUDFLARE_R2_SECRET_ACCESS_KEY": self.cloudflare_r2_secret_access_key,
+            "CLOUDFLARE_R2_BUCKET": self.cloudflare_r2_bucket,
+            "CLOUDFLARE_R2_ENDPOINT": self.cloudflare_r2_endpoint,
+        }
+        missing = [
+            field for field, value in required_fields.items() if not value.strip()
+        ]
+        if missing:
+            raise ValueError(
+                "Missing Cloudflare R2 configuration values: " + ", ".join(missing)
+            )
+
     def to_dict(self) -> Dict[str, Any]:
         """Export configuration as dictionary"""
         return {
@@ -373,14 +406,11 @@ class Config:
             "repo_cache_dir": self.repo_cache_dir,
             "embedding_provider": str(self.embedding_provider),
             "vector_provider": str(self.vector_provider),
-            "qdrant_url": self.qdrant_url,
             "qdrant_collection": self.qdrant_collection,
             "vector_size": self.vector_size,
             "qdrant_cloud_url": self.qdrant_cloud_url,
             "qdrant_api_key": self.qdrant_api_key,
             "qdrant_cluster_region": self.qdrant_cluster_region,
-            "ollama_url": self.ollama_url,
-            "embedding_model": self.embedding_model,
             "openai_api_key": self.openai_api_key,
             "openai_model": self.openai_model,
             "openai_base_url": self.openai_base_url,
@@ -397,6 +427,26 @@ class Config:
             "board_embed_retry_max": self.board_embed_retry_max,
             "board_embed_backoff_base": self.board_embed_backoff_base,
             "log_level": self.log_level,
+            "cloudflare_account_id": self.cloudflare_account_id,
+            "cloudflare_r2_access_key_id": self.cloudflare_r2_access_key_id,
+            "cloudflare_r2_bucket": self.cloudflare_r2_bucket,
+            "cloudflare_r2_endpoint": self.cloudflare_r2_endpoint,
+            "cloudflare_r2_key_prefix": self.cloudflare_r2_key_prefix,
+            "cloudflare_r2_soft_delete_enabled": self.cloudflare_r2_soft_delete_enabled,
+            "cloudflare_r2_soft_delete_prefix": self.cloudflare_r2_soft_delete_prefix,
+        }
+
+    def get_r2_service_config(self) -> Dict[str, Any]:
+        """Get configuration dictionary for Cloudflare R2 service"""
+        return {
+            "account_id": self.cloudflare_account_id,
+            "access_key_id": self.cloudflare_r2_access_key_id,
+            "secret_access_key": self.cloudflare_r2_secret_access_key,
+            "bucket": self.cloudflare_r2_bucket,
+            "endpoint": self.cloudflare_r2_endpoint,
+            "key_prefix": self.cloudflare_r2_key_prefix,
+            "soft_delete_enabled": self.cloudflare_r2_soft_delete_enabled,
+            "soft_delete_prefix": self.cloudflare_r2_soft_delete_prefix,
         }
 
     @classmethod

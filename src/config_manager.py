@@ -1,3 +1,4 @@
+# CONFIG GROUP - Configuration management and settings
 """
 Advanced configuration management for KNUE Policy Vectorizer.
 
@@ -188,38 +189,6 @@ class ConfigurationManager:
     def _ensure_default_templates(self):
         """Create default configuration templates"""
         default_templates = [
-            ConfigTemplate(
-                name="local-development",
-                description="Local development with Ollama and local Qdrant",
-                embedding_provider=EmbeddingProvider.OLLAMA,
-                vector_provider=VectorProvider.QDRANT_LOCAL,
-                config_overrides={
-                    "ollama_url": "http://localhost:11434",
-                    "embedding_model": "bge-m3",
-                    "qdrant_url": "http://localhost:6333",
-                    "vector_size": 1024,
-                    "max_tokens": 8192,
-                },
-                required_env_vars=[],
-                optional_env_vars=["OLLAMA_URL", "QDRANT_URL"],
-                tags=["development", "local", "ollama", "qdrant"],
-            ),
-            ConfigTemplate(
-                name="openai-local",
-                description="OpenAI embeddings with local Qdrant",
-                embedding_provider=EmbeddingProvider.OPENAI,
-                vector_provider=VectorProvider.QDRANT_LOCAL,
-                config_overrides={
-                    "openai_model": "text-embedding-3-small",
-                    "openai_base_url": "https://api.openai.com/v1",
-                    "qdrant_url": "http://localhost:6333",
-                    "vector_size": 1536,
-                    "max_tokens": 8191,
-                },
-                required_env_vars=["OPENAI_API_KEY"],
-                optional_env_vars=["OPENAI_MODEL", "QDRANT_URL"],
-                tags=["openai", "local", "qdrant"],
-            ),
             ConfigTemplate(
                 name="openai-cloud",
                 description="OpenAI embeddings with Qdrant Cloud",
@@ -667,11 +636,8 @@ class ConfigurationManager:
                 "openai_api_key": "OPENAI_API_KEY",
                 "openai_model": "OPENAI_MODEL",
                 "openai_base_url": "OPENAI_BASE_URL",
-                "qdrant_url": "QDRANT_URL",
                 "qdrant_cloud_url": "QDRANT_CLOUD_URL",
                 "qdrant_api_key": "QDRANT_API_KEY",
-                "ollama_url": "OLLAMA_URL",
-                "embedding_model": "OLLAMA_MODEL",
                 "qdrant_collection": "COLLECTION_NAME",
                 "vector_size": "VECTOR_SIZE",
                 "max_tokens": "MAX_TOKEN_LENGTH",

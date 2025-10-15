@@ -5,7 +5,7 @@ import re
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import frontmatter
 import requests
@@ -52,15 +52,19 @@ class MarkdownProcessor:
         self._cache_timestamp = None
         self._cache_duration = 3600  # Cache for 1 hour
 
-    def remove_frontmatter(self, content: str) -> str:
+    def remove_frontmatter(
+        self, content: str, *, return_metadata: bool = False
+    ) -> Union[str, Tuple[str, Dict[str, Any]]]:
         """Remove YAML or TOML frontmatter from markdown content.
 
         Args:
             content: Raw markdown content potentially with frontmatter
 
         Returns:
-            Markdown content without frontmatter
+            Markdown content without frontmatter or tuple of (content, metadata)
         """
+        metadata: Dict[str, Any] = {}
+
         try:
             # Try using python-frontmatter first (handles YAML)
             post = frontmatter.loads(content)
@@ -68,9 +72,12 @@ class MarkdownProcessor:
             # If metadata was parsed, return content without frontmatter
             if post.metadata:
                 clean_content = post.content
+                metadata = dict(post.metadata)
                 self.logger.debug(
                     "YAML frontmatter removed", metadata_keys=list(post.metadata.keys())
                 )
+                if return_metadata:
+                    return clean_content, metadata
                 return clean_content
 
         except Exception as e:
@@ -93,7 +100,28 @@ class MarkdownProcessor:
                     # Remove frontmatter and return remaining content
                     remaining_lines = lines[end_idx + 1 :]
                     clean_content = "\n".join(remaining_lines).lstrip("\n")
+                    frontmatter_lines = lines[1:end_idx]
+
+                    if return_metadata:
+                        try:
+                            try:
+                                import tomllib  # type: ignore[attr-defined]
+                            except (
+                                ModuleNotFoundError
+                            ):  # pragma: no cover - Python <3.11 fallback
+                                import tomli as tomllib  # type: ignore
+
+                            metadata = tomllib.loads("\n".join(frontmatter_lines))
+                        except Exception as parse_error:
+                            self.logger.debug(
+                                "Failed to parse TOML frontmatter metadata",
+                                error=str(parse_error),
+                            )
+                            metadata = {}
+
                     self.logger.debug("TOML frontmatter removed")
+                    if return_metadata:
+                        return clean_content, metadata
                     return clean_content
 
         except Exception as e:
@@ -101,6 +129,8 @@ class MarkdownProcessor:
 
         # If no frontmatter found or parsing failed, return original content
         self.logger.debug("No frontmatter detected")
+        if return_metadata:
+            return content, metadata
         return content
 
     def extract_title(self, content: str, filename: str = "") -> str:
@@ -212,15 +242,12 @@ class MarkdownProcessor:
         """
         if use_embedding_service:
             try:
-                # Import here to avoid circular imports
-                from embedding_service import EmbeddingService
+                # Use tiktoken directly for token estimation
+                import tiktoken
 
-                # Create a temporary embedding service for tokenization
-                if not hasattr(self, "_embedding_service"):
-                    self._embedding_service = EmbeddingService()
-
-                # Use the embedding service's tokenizer for accurate counting
-                token_estimate = self._embedding_service.estimate_tokens(content)
+                # Use OpenAI's tokenizer (cl100k_base) as approximation
+                encoding = tiktoken.get_encoding("cl100k_base")
+                token_estimate = len(encoding.encode(content))
 
                 self.logger.debug(
                     "Token count estimated using embedding service",
@@ -986,7 +1013,9 @@ class MarkdownProcessor:
 
         try:
             # Step 1: Remove frontmatter
-            content_no_frontmatter = self.remove_frontmatter(raw_content)
+            content_no_frontmatter, frontmatter_metadata = self.remove_frontmatter(
+                raw_content, return_metadata=True
+            )
 
             # Step 2: Extract title
             title = self.extract_title(content_no_frontmatter, filename)
@@ -1011,6 +1040,7 @@ class MarkdownProcessor:
                     "content": clean_content,  # Keep original for reference
                     "title": title,
                     "filename": filename,
+                    "frontmatter": frontmatter_metadata,
                     "is_valid": True,  # Chunked content is valid
                     "validation_error": None,
                     "char_count": len(clean_content),
@@ -1032,6 +1062,7 @@ class MarkdownProcessor:
                     "content": clean_content,
                     "title": title,
                     "filename": filename,
+                    "frontmatter": frontmatter_metadata,
                     "is_valid": is_valid,
                     "validation_error": error_message,
                     "char_count": len(clean_content),

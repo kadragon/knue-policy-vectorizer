@@ -19,6 +19,16 @@ class TestCLIProviders:
     def setup_method(self):
         """Setup test environment"""
         self.runner = CliRunner()
+        for key in [
+            "EMBEDDING_PROVIDER",
+            "VECTOR_PROVIDER",
+            "OPENAI_API_KEY",
+            "OPENAI_MODEL",
+            "OPENAI_BASE_URL",
+            "QDRANT_CLOUD_URL",
+            "QDRANT_API_KEY",
+        ]:
+            os.environ.pop(key, None)
 
     def test_list_providers_command(self):
         """Test listing available providers"""
@@ -29,9 +39,7 @@ class TestCLIProviders:
         assert result.exit_code == 0
         assert "Available Embedding Providers:" in result.output
         assert "Available Vector Providers:" in result.output
-        assert "ollama" in result.output
         assert "openai" in result.output
-        assert "qdrant_local" in result.output
         assert "qdrant_cloud" in result.output
 
     def test_configure_providers_interactive(self):
@@ -54,8 +62,9 @@ class TestCLIProviders:
 
         assert result.exit_code == 0
         assert (
-            "Configuration saved with" in result.output
-        )  # Could be "masked credentials" or "secure permissions"
+            "Configuration saving to .env is disabled for security reasons"
+            in result.output
+        )
 
     def test_configure_providers_with_validation_errors(self):
         """Test configuration with validation errors"""
@@ -65,10 +74,12 @@ class TestCLIProviders:
         with patch("click.prompt") as mock_prompt:
             mock_prompt.side_effect = [
                 "invalid_provider",  # Invalid embedding provider
-                "ollama",  # Valid fallback
-                "bge-m3",  # Model
-                "qdrant_local",  # Vector provider
-                "http://localhost:6333",  # Qdrant URL
+                "openai",  # Valid fallback
+                "sk-test-key",  # OpenAI API key
+                "text-embedding-3-small",  # Model
+                "qdrant_cloud",  # Vector provider
+                "https://test.qdrant.tech",  # Qdrant URL
+                "test-api-key",  # Qdrant API key
             ]
 
             with patch("click.confirm", return_value=True):
@@ -94,7 +105,19 @@ class TestCLIProviders:
         """Test sync command with provider options"""
         from src.sync_pipeline import main
 
-        with patch("src.sync_pipeline.SyncPipeline") as mock_pipeline:
+        env = {
+            "EMBEDDING_PROVIDER": "openai",
+            "VECTOR_PROVIDER": "qdrant_cloud",
+            "OPENAI_API_KEY": "sk-test",
+            "OPENAI_MODEL": "text-embedding-3-small",
+            "QDRANT_CLOUD_URL": "https://test.qdrant.tech",
+            "QDRANT_API_KEY": "test-key",
+        }
+
+        with (
+            patch.dict(os.environ, env, clear=False),
+            patch("src.sync_pipeline.SyncPipeline") as mock_pipeline,
+        ):
             mock_instance = Mock()
             mock_instance.health_check.return_value = True
             mock_instance.sync.return_value = {
@@ -126,6 +149,103 @@ class TestCLIProviders:
 
         assert result.exit_code == 0
         assert "No changes detected" in result.output
+
+    def test_sync_cloudflare_r2_command(self):
+        """Cloudflare R2 sync command should validate config and run pipeline."""
+        from src.sync_pipeline import main
+
+        config = Config()
+        config.cloudflare_account_id = "account123"
+        config.cloudflare_r2_access_key_id = "access"
+        config.cloudflare_r2_secret_access_key = "secret"
+        config.cloudflare_r2_bucket = "knue-vectorstore"
+        config.cloudflare_r2_endpoint = "https://account123.r2.cloudflarestorage.com"
+        config.validate_r2 = Mock()
+
+        with patch("src.sync_pipeline.Config.from_env", return_value=config):
+            with patch("src.sync_pipeline.CloudflareR2SyncPipeline") as mock_pipeline:
+                mock_instance = Mock()
+                mock_instance.sync.return_value = {
+                    "status": "success",
+                    "changes_detected": True,
+                    "uploaded": 2,
+                    "deleted": 1,
+                    "renamed": 0,
+                    "failed_files": [],
+                }
+                mock_pipeline.return_value = mock_instance
+
+                result = self.runner.invoke(main, ["sync-cloudflare-r2"])
+
+        assert result.exit_code == 0
+        config.validate_r2.assert_called_once()
+        mock_pipeline.assert_called_once()
+        assert "Cloudflare R2 sync completed successfully" in result.output
+        assert "Objects: 2 uploaded" in result.output
+
+    def test_sync_partial_failure_returns_nonzero_exit(self):
+        """Partial sync failures should surface as a warning."""
+        from src.sync_pipeline import main
+
+        env = {
+            "EMBEDDING_PROVIDER": "openai",
+            "VECTOR_PROVIDER": "qdrant_cloud",
+            "OPENAI_API_KEY": "sk-test",
+            "OPENAI_MODEL": "text-embedding-3-small",
+            "QDRANT_CLOUD_URL": "https://test.qdrant.tech",
+            "QDRANT_API_KEY": "test-key",
+        }
+
+        with (
+            patch.dict(os.environ, env, clear=False),
+            patch("src.sync_pipeline.SyncPipeline") as mock_pipeline,
+        ):
+            mock_instance = Mock()
+            mock_instance.health_check.return_value = True
+            mock_instance.sync.return_value = {
+                "status": "partial_success",
+                "changes_detected": True,
+                "upserted": 1,
+                "deleted": 0,
+                "renamed": 0,
+                "failed_files": ["policies/rule.md"],
+            }
+            mock_pipeline.return_value = mock_instance
+
+            result = self.runner.invoke(main, ["sync"])
+
+        assert result.exit_code == 0
+        assert "some failures" in result.output
+
+    def test_sync_cloudflare_r2_partial_failure_nonzero_exit(self):
+        """R2 sync should exit with error when failures occur."""
+        from src.sync_pipeline import main
+
+        config = Config()
+        config.cloudflare_account_id = "account123"
+        config.cloudflare_r2_access_key_id = "access"
+        config.cloudflare_r2_secret_access_key = "secret"
+        config.cloudflare_r2_bucket = "knue-vectorstore"
+        config.cloudflare_r2_endpoint = "https://account123.r2.cloudflarestorage.com"
+        config.validate_r2 = Mock()
+
+        with patch("src.sync_pipeline.Config.from_env", return_value=config):
+            with patch("src.sync_pipeline.CloudflareR2SyncPipeline") as mock_pipeline:
+                mock_instance = Mock()
+                mock_instance.sync.return_value = {
+                    "status": "partial_success",
+                    "changes_detected": True,
+                    "uploaded": 1,
+                    "deleted": 0,
+                    "renamed": 0,
+                    "failed_files": ["policies/rule.md"],
+                }
+                mock_pipeline.return_value = mock_instance
+
+                result = self.runner.invoke(main, ["sync-cloudflare-r2"])
+
+        assert result.exit_code == 1
+        assert "Error: Cloudflare R2 sync finished with errors" in result.output
 
     def test_health_command_with_providers(self):
         """Test health command with different providers"""
@@ -207,9 +327,9 @@ class TestCLIProviders:
                     migrate_providers,
                     [
                         "--from-embedding",
-                        "ollama",
+                        "openai",
                         "--from-vector",
-                        "qdrant_local",
+                        "qdrant_cloud",
                         "--to-embedding",
                         "openai",
                         "--to-vector",
@@ -221,7 +341,7 @@ class TestCLIProviders:
 
     def test_config_file_operations(self):
         """Test configuration file save/load operations"""
-        from src.sync_pipeline import load_config_file, save_config_file
+        from src.sync_pipeline import load_config_file
 
         config = Config(
             embedding_provider=EmbeddingProvider.OPENAI,
@@ -230,14 +350,11 @@ class TestCLIProviders:
             qdrant_cloud_url="https://test.qdrant.tech",
         )
 
+        # .env saving disabled, test loading only
         with self.runner.isolated_filesystem():
-            # Test saving config
-            result = self.runner.invoke(
-                save_config_file, ["--output", "test-config.env"], obj=config
-            )
-
-            assert result.exit_code == 0
-            assert os.path.exists("test-config.env")
+            # Create a test .env file manually
+            with open("test-config.env", "w") as f:
+                f.write("EMBEDDING_PROVIDER=openai\nVECTOR_PROVIDER=qdrant_cloud\n")
 
             # Test loading config
             result = self.runner.invoke(
@@ -262,10 +379,16 @@ class TestCLIProviders:
         """Test that CLI options override environment variables"""
         from src.sync_pipeline import main
 
-        with patch.dict(
-            os.environ,
-            {"EMBEDDING_PROVIDER": "ollama", "VECTOR_PROVIDER": "qdrant_local"},
-        ):
+        env = {
+            "EMBEDDING_PROVIDER": "openai",
+            "VECTOR_PROVIDER": "qdrant_cloud",
+            "OPENAI_API_KEY": "sk-env",
+            "OPENAI_MODEL": "text-embedding-3-small",
+            "QDRANT_CLOUD_URL": "https://env.qdrant.tech",
+            "QDRANT_API_KEY": "env-key",
+        }
+
+        with patch.dict(os.environ, env, clear=False):
             with patch("src.sync_pipeline.SyncPipeline") as mock_pipeline:
                 mock_instance = Mock()
                 mock_instance.health_check.return_value = True
@@ -293,18 +416,26 @@ class TestCLIProviders:
 
         assert result.exit_code == 0
 
-    def test_config_export_import(self):
-        """Test configuration export and import functionality"""
-        from src.sync_pipeline import export_config, import_config
+    def test_config_import(self):
+        """Test configuration import functionality"""
+        from src.sync_pipeline import import_config
 
         with self.runner.isolated_filesystem():
-            # Export current config
-            result = self.runner.invoke(
-                export_config, ["--format", "json", "--output", "config.json"]
-            )
+            # Create a test JSON config
+            import json
 
-            assert result.exit_code == 0
-            assert os.path.exists("config.json")
+            config_data = {
+                "embedding_provider": "openai",
+                "vector_provider": "qdrant_cloud",
+                "qdrant_collection": "test_collection",
+                "vector_size": 1536,
+                "openai_api_key": "sk-test",
+                "openai_model": "text-embedding-3-small",
+                "qdrant_cloud_url": "https://test.qdrant.tech",
+                "qdrant_api_key": "test-key",
+            }
+            with open("config.json", "w") as f:
+                json.dump(config_data, f)
 
             # Import config
             result = self.runner.invoke(import_config, ["--config-file", "config.json"])

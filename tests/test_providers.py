@@ -24,25 +24,23 @@ class TestProviderEnums:
 
     def test_embedding_provider_enum(self):
         """Test EmbeddingProvider enum has correct values"""
-        assert EmbeddingProvider.OLLAMA.value == "ollama"
+        assert EmbeddingProvider.OPENAI.value == "openai"
         assert EmbeddingProvider.OPENAI.value == "openai"
 
         # Test string conversion
-        assert str(EmbeddingProvider.OLLAMA) == "ollama"
+        assert str(EmbeddingProvider.OPENAI) == "openai"
         assert str(EmbeddingProvider.OPENAI) == "openai"
 
     def test_vector_provider_enum(self):
         """Test VectorProvider enum has correct values"""
-        assert VectorProvider.QDRANT_LOCAL.value == "qdrant_local"
         assert VectorProvider.QDRANT_CLOUD.value == "qdrant_cloud"
 
         # Test string conversion
-        assert str(VectorProvider.QDRANT_LOCAL) == "qdrant_local"
         assert str(VectorProvider.QDRANT_CLOUD) == "qdrant_cloud"
 
     def test_embedding_provider_from_string(self):
         """Test creating EmbeddingProvider from string"""
-        assert EmbeddingProvider("ollama") == EmbeddingProvider.OLLAMA
+        assert EmbeddingProvider("openai") == EmbeddingProvider.OPENAI
         assert EmbeddingProvider("openai") == EmbeddingProvider.OPENAI
 
         with pytest.raises(ValueError):
@@ -50,7 +48,6 @@ class TestProviderEnums:
 
     def test_vector_provider_from_string(self):
         """Test creating VectorProvider from string"""
-        assert VectorProvider("qdrant_local") == VectorProvider.QDRANT_LOCAL
         assert VectorProvider("qdrant_cloud") == VectorProvider.QDRANT_CLOUD
 
         with pytest.raises(ValueError):
@@ -146,12 +143,12 @@ class TestProviderConfig:
     def test_provider_config_creation(self):
         """Test creating ProviderConfig with different providers"""
         config = ProviderConfig(
-            embedding_provider=EmbeddingProvider.OLLAMA,
-            vector_provider=VectorProvider.QDRANT_LOCAL,
+            embedding_provider=EmbeddingProvider.OPENAI,
+            vector_provider=VectorProvider.QDRANT_CLOUD,
         )
 
-        assert config.embedding_provider == EmbeddingProvider.OLLAMA
-        assert config.vector_provider == VectorProvider.QDRANT_LOCAL
+        assert config.embedding_provider == EmbeddingProvider.OPENAI
+        assert config.vector_provider == VectorProvider.QDRANT_CLOUD
 
     def test_provider_config_from_strings(self):
         """Test creating ProviderConfig from string values"""
@@ -166,15 +163,15 @@ class TestProviderConfig:
         """Test ProviderConfig validation"""
         # Valid combinations should work
         config = ProviderConfig(
-            embedding_provider=EmbeddingProvider.OLLAMA,
-            vector_provider=VectorProvider.QDRANT_LOCAL,
+            embedding_provider=EmbeddingProvider.OPENAI,
+            vector_provider=VectorProvider.QDRANT_CLOUD,
         )
         assert config.is_valid()
 
         # Test with invalid string conversion
         with pytest.raises(ValueError):
             ProviderConfig.from_strings(
-                embedding_provider="invalid", vector_provider="qdrant_local"
+                embedding_provider="invalid", vector_provider="qdrant_cloud"
             )
 
     def test_provider_config_to_dict(self):
@@ -197,22 +194,6 @@ class TestProviderFactory:
         factory = ProviderFactory()
         assert factory is not None
 
-    def test_get_embedding_service_ollama(self):
-        """Test getting Ollama embedding service from factory"""
-        factory = ProviderFactory()
-
-        with patch("src.embedding_service.EmbeddingService") as mock_service:
-            mock_instance = Mock()
-            mock_service.return_value = mock_instance
-
-            service = factory.get_embedding_service(
-                EmbeddingProvider.OLLAMA,
-                {"ollama_url": "http://localhost:11434", "model": "bge-m3"},
-            )
-
-            assert service == mock_instance
-            mock_service.assert_called_once()
-
     def test_get_embedding_service_openai(self):
         """Test getting OpenAI embedding service from factory"""
         factory = ProviderFactory()
@@ -231,21 +212,6 @@ class TestProviderFactory:
             mock_create.assert_called_once_with(
                 {"api_key": "test-key", "model": "text-embedding-3-small"}
             )
-
-    def test_get_vector_service_qdrant_local(self):
-        """Test getting local Qdrant service from factory"""
-        factory = ProviderFactory()
-
-        with patch("src.qdrant_service.QdrantService") as mock_service:
-            mock_instance = Mock()
-            mock_service.return_value = mock_instance
-
-            service = factory.get_vector_service(
-                VectorProvider.QDRANT_LOCAL, {"url": "http://localhost:6333"}
-            )
-
-            assert service == mock_instance
-            mock_service.assert_called_once()
 
     def test_get_vector_service_qdrant_cloud(self):
         """Test getting Qdrant Cloud service from factory"""
@@ -291,20 +257,6 @@ class TestProviderFactory:
 class TestProviderConfigValidation:
     """Test provider configuration validation"""
 
-    def test_ollama_config_validation(self):
-        """Test Ollama configuration validation"""
-        factory = ProviderFactory()
-
-        # Valid config
-        valid_config = {"ollama_url": "http://localhost:11434", "model": "bge-m3"}
-        assert factory.validate_embedding_config(EmbeddingProvider.OLLAMA, valid_config)
-
-        # Missing required field
-        invalid_config = {"ollama_url": "http://localhost:11434"}
-        assert not factory.validate_embedding_config(
-            EmbeddingProvider.OLLAMA, invalid_config
-        )
-
     def test_openai_config_validation(self):
         """Test OpenAI configuration validation"""
         factory = ProviderFactory()
@@ -317,20 +269,6 @@ class TestProviderConfigValidation:
         invalid_config = {"model": "text-embedding-3-small"}
         assert not factory.validate_embedding_config(
             EmbeddingProvider.OPENAI, invalid_config
-        )
-
-    def test_qdrant_local_config_validation(self):
-        """Test Qdrant local configuration validation"""
-        factory = ProviderFactory()
-
-        # Valid config
-        valid_config = {"url": "http://localhost:6333"}
-        assert factory.validate_vector_config(VectorProvider.QDRANT_LOCAL, valid_config)
-
-        # Missing URL
-        invalid_config = {}
-        assert not factory.validate_vector_config(
-            VectorProvider.QDRANT_LOCAL, invalid_config
         )
 
     def test_qdrant_cloud_config_validation(self):

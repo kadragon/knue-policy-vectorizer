@@ -175,6 +175,15 @@ class GitWatcher:
             renamed_files contains tuples of (old_path, new_path)
         """
         try:
+            # Handle initial sync when no previous commit is known
+            if old_commit is None:
+                added_files = [path for path in self.get_markdown_files()]
+                self.logger.info(
+                    "Initial sync detected",
+                    added=len(added_files),
+                )
+                return added_files, [], [], []
+
             # Get commit objects
             old_commit_obj = self.repo.commit(old_commit)
             new_commit_obj = self.repo.commit(new_commit)

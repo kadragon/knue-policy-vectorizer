@@ -59,8 +59,8 @@ def test_config_module():
     config = Config()
     assert config.repo_url == "https://github.com/kadragon/KNUE-Policy-Hub.git"
     assert config.branch == "main"
-    assert config.vector_size == 1024
-    assert config.embedding_model == "bge-m3"
+    assert config.vector_size == 1536
+    assert config.openai_model == "text-embedding-3-large"
 
     # Test environment-based config
     config_from_env = Config.from_env()

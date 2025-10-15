@@ -9,7 +9,7 @@ description = "Sync KNUE Policy Hub markdown files to Qdrant vector database"
 authors = [{name = "kadragon", email = "your-email@example.com"}]
 license = {text = "MIT"}
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -26,11 +26,11 @@ dependencies = [
     "colorama>=0.4.6",
     "gitpython>=3.1.45",
     "langchain-community>=0.3.27",
-    "langchain-ollama>=0.3.6",
     "numpy>=2.0.2",
     "pydantic>=2.11.7",
     "python-frontmatter>=1.1.0",
     "python-dotenv>=1.0.1",
+    "boto3>=1.35.71",
     "qdrant-client>=1.15.1",
     "structlog>=25.4.0",
     "tiktoken>=0.11.0",

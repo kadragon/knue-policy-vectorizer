@@ -7,12 +7,14 @@ import logging
 import time
 from typing import Any, Dict, List, Optional
 
-import openai
 import structlog
 import tiktoken
 from openai import AuthenticationError, OpenAI, OpenAIError, RateLimitError
 
-from .providers import EmbeddingServiceInterface
+try:
+    from .providers import EmbeddingServiceInterface
+except ImportError:  # pragma: no cover - fallback for script imports
+    from providers import EmbeddingServiceInterface
 
 logger = structlog.get_logger(__name__)
 

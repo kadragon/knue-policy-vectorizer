@@ -27,7 +27,7 @@ class TestMigrationReport:
         """Test creating migration report"""
         start_time = datetime.now()
         report = MigrationReport(
-            source_provider="ollama/qdrant_local",
+            source_provider="openai/qdrant_cloud",
             target_provider="openai/qdrant_cloud",
             start_time=start_time,
             total_documents=100,
@@ -35,7 +35,7 @@ class TestMigrationReport:
             failed_documents=5,
         )
 
-        assert report.source_provider == "ollama/qdrant_local"
+        assert report.source_provider == "openai/qdrant_cloud"
         assert report.target_provider == "openai/qdrant_cloud"
         assert report.total_documents == 100
         assert report.migrated_documents == 95
@@ -48,7 +48,7 @@ class TestMigrationReport:
         end_time = datetime.now()
 
         report = MigrationReport(
-            source_provider="ollama/qdrant_local",
+            source_provider="openai/qdrant_cloud",
             target_provider="openai/qdrant_cloud",
             start_time=start_time,
             end_time=end_time,
@@ -61,7 +61,7 @@ class TestMigrationReport:
 
         report_dict = report.to_dict()
 
-        assert report_dict["source_provider"] == "ollama/qdrant_local"
+        assert report_dict["source_provider"] == "openai/qdrant_cloud"
         assert report_dict["target_provider"] == "openai/qdrant_cloud"
         assert report_dict["total_documents"] == 100
         assert report_dict["migrated_documents"] == 95
@@ -80,16 +80,16 @@ class TestCompatibilityCheck:
             embedding_compatible=True,
             vector_compatible=True,
             dimension_match=True,
-            source_dimensions=1024,
-            target_dimensions=1024,
+            source_dimensions=1536,
+            target_dimensions=1536,
             warnings=["Test warning"],
         )
 
         assert check.embedding_compatible is True
         assert check.vector_compatible is True
         assert check.dimension_match is True
-        assert check.source_dimensions == 1024
-        assert check.target_dimensions == 1024
+        assert check.source_dimensions == 1536
+        assert check.target_dimensions == 1536
         assert check.fully_compatible is True
         assert check.warnings == ["Test warning"]
 
@@ -99,8 +99,8 @@ class TestCompatibilityCheck:
             embedding_compatible=True,
             vector_compatible=True,
             dimension_match=False,
-            source_dimensions=1024,
-            target_dimensions=1536,
+            source_dimensions=1536,
+            target_dimensions=2048,
         )
 
         assert check.fully_compatible is False
@@ -113,13 +113,14 @@ class TestMigrationManager:
         """Setup test environment"""
         # Create test configurations
         self.source_config = Config(
-            embedding_provider=EmbeddingProvider.OLLAMA,
-            vector_provider=VectorProvider.QDRANT_LOCAL,
-            ollama_url="http://localhost:11434",
-            embedding_model="bge-m3",
-            qdrant_url="http://localhost:6333",
+            embedding_provider=EmbeddingProvider.OPENAI,
+            vector_provider=VectorProvider.QDRANT_CLOUD,
+            openai_api_key="sk-test-source",
+            openai_model="text-embedding-3-small",
+            qdrant_cloud_url="https://source.qdrant.tech",
+            qdrant_api_key="source-key",
             qdrant_collection="test_collection",
-            vector_size=1024,
+            vector_size=1536,
         )
 
         self.target_config = Config(
@@ -154,45 +155,7 @@ class TestMigrationManager:
         mock_target_vector = Mock()
 
         # Mock embedding services
-        mock_source_embedding.generate_embedding.return_value = [0.1] * 1024
-        mock_target_embedding.generate_embedding.return_value = [0.2] * 1024
-
-        # Mock vector services
-        mock_source_vector.health_check.return_value = True
-        mock_target_vector.health_check.return_value = True
-
-        mock_factory_instance.get_embedding_service.side_effect = [
-            mock_source_embedding,
-            mock_target_embedding,
-        ]
-        mock_factory_instance.get_vector_service.side_effect = [
-            mock_source_vector,
-            mock_target_vector,
-        ]
-
-        manager = MigrationManager(self.source_config, self.target_config)
-        compatibility = manager.check_compatibility()
-
-        assert compatibility.embedding_compatible is True
-        assert compatibility.vector_compatible is True
-        assert compatibility.dimension_match is True
-        assert compatibility.source_dimensions == 1024
-        assert compatibility.target_dimensions == 1024
-
-    @patch("src.migration_tools.ProviderFactory")
-    def test_check_compatibility_dimension_mismatch(self, mock_factory):
-        """Test compatibility check with dimension mismatch"""
-        # Setup mocks
-        mock_factory_instance = Mock()
-        mock_factory.return_value = mock_factory_instance
-
-        mock_source_embedding = Mock()
-        mock_target_embedding = Mock()
-        mock_source_vector = Mock()
-        mock_target_vector = Mock()
-
-        # Mock embedding services with different dimensions
-        mock_source_embedding.generate_embedding.return_value = [0.1] * 1024
+        mock_source_embedding.generate_embedding.return_value = [0.1] * 1536
         mock_target_embedding.generate_embedding.return_value = [0.2] * 1536
 
         # Mock vector services
@@ -213,10 +176,54 @@ class TestMigrationManager:
 
         assert compatibility.embedding_compatible is True
         assert compatibility.vector_compatible is True
-        assert compatibility.dimension_match is False
-        assert compatibility.source_dimensions == 1024
+        assert compatibility.dimension_match is True
+        assert compatibility.source_dimensions == 1536
         assert compatibility.target_dimensions == 1536
+
+    @patch("src.migration_tools.ProviderFactory")
+    def test_check_compatibility_dimension_mismatch(self, mock_factory):
+        """Test compatibility check with dimension mismatch"""
+        # Setup mocks
+        mock_factory_instance = Mock()
+        mock_factory.return_value = mock_factory_instance
+
+        mock_source_embedding = Mock()
+        mock_target_embedding = Mock()
+        mock_source_vector = Mock()
+        mock_target_vector = Mock()
+
+        # Mock embedding services with different dimensions
+        mock_source_embedding.generate_embedding.return_value = [0.1] * 1536
+        mock_target_embedding.generate_embedding.return_value = [0.2] * 2048
+
+        # Mock vector services
+        mock_source_vector.health_check.return_value = True
+        mock_target_vector.health_check.return_value = True
+
+        mock_factory_instance.get_embedding_service.side_effect = [
+            mock_source_embedding,
+            mock_target_embedding,
+        ]
+        mock_factory_instance.get_vector_service.side_effect = [
+            mock_source_vector,
+            mock_target_vector,
+        ]
+
+        # Force vector size mismatch for target
+        original_target_size = self.target_config.vector_size
+        self.target_config.vector_size = 2048
+        manager = MigrationManager(self.source_config, self.target_config)
+        compatibility = manager.check_compatibility()
+
+        assert compatibility.embedding_compatible is True
+        assert compatibility.vector_compatible is True
+        assert compatibility.dimension_match is False
+        assert compatibility.source_dimensions == 1536
+        assert compatibility.target_dimensions == 2048
         assert len(compatibility.warnings) > 0
+
+        # Restore target vector size for other tests
+        self.target_config.vector_size = original_target_size
         assert "Dimension mismatch" in compatibility.warnings[0]
 
     @patch("src.migration_tools.ProviderFactory")
@@ -230,12 +237,12 @@ class TestMigrationManager:
         mock_vector_service.search_points.return_value = [
             {
                 "id": "doc1",
-                "vector": [0.1] * 1024,
+                "vector": [0.1] * 1536,
                 "payload": {"title": "Test Document 1", "content": "Test content 1"},
             },
             {
                 "id": "doc2",
-                "vector": [0.2] * 1024,
+                "vector": [0.2] * 1536,
                 "payload": {"title": "Test Document 2", "content": "Test content 2"},
             },
         ]
@@ -287,7 +294,7 @@ class TestMigrationManager:
             "points": [
                 {
                     "id": "doc1",
-                    "vector": [0.1] * 1024,
+                    "vector": [0.1] * 1536,
                     "payload": {
                         "title": "Test Document 1",
                         "content": "Test content 1",
@@ -295,7 +302,7 @@ class TestMigrationManager:
                 },
                 {
                     "id": "doc2",
-                    "vector": [0.2] * 1024,
+                    "vector": [0.2] * 1536,
                     "payload": {
                         "title": "Test Document 2",
                         "content": "Test content 2",
@@ -336,8 +343,8 @@ class TestMigrationManager:
 
         # Mock embedding performance (source slower than target)
         mock_source_embedding.generate_embeddings_batch.return_value = [
-            [0.1] * 1024,
-            [0.2] * 1024,
+            [0.1] * 1536,
+            [0.2] * 1536,
         ]
         mock_target_embedding.generate_embeddings_batch.return_value = [
             [0.3] * 1536,
@@ -377,7 +384,7 @@ class TestMigrationManager:
         assert "source" in emb_perf
         assert "target" in emb_perf
         assert "speedup" in emb_perf
-        assert emb_perf["source"]["dimensions"] == 1024
+        assert emb_perf["source"]["dimensions"] == 1536
         assert emb_perf["target"]["dimensions"] == 1536
 
 
@@ -397,7 +404,7 @@ class TestCreateMigrationConfig:
             mock_config_class.from_dict.side_effect = lambda d: d
 
             source_config, target_config = create_migration_config(
-                "ollama", "qdrant_local", "openai", "qdrant_cloud"
+                "openai", "qdrant_cloud", "openai", "qdrant_cloud"
             )
 
             # Verify configurations were created with correct providers
@@ -408,8 +415,8 @@ class TestCreateMigrationConfig:
             source_dict = calls[0][0][0]
             target_dict = calls[1][0][0]
 
-            assert source_dict["embedding_provider"] == EmbeddingProvider.OLLAMA
-            assert source_dict["vector_provider"] == VectorProvider.QDRANT_LOCAL
+            assert source_dict["embedding_provider"] == EmbeddingProvider.OPENAI
+            assert source_dict["vector_provider"] == VectorProvider.QDRANT_CLOUD
             assert target_dict["embedding_provider"] == EmbeddingProvider.OPENAI
             assert target_dict["vector_provider"] == VectorProvider.QDRANT_CLOUD
 
@@ -429,8 +436,8 @@ class TestCreateMigrationConfig:
             target_overrides = {"openai_api_key": "target-key"}
 
             source_config, target_config = create_migration_config(
-                "ollama",
-                "qdrant_local",
+                "openai",
+                "qdrant_cloud",
                 "openai",
                 "qdrant_cloud",
                 source_overrides=source_overrides,
@@ -465,7 +472,7 @@ class TestMigrationIntegration:
         mock_target_vector = Mock()
 
         # Configure embedding services
-        mock_source_embedding.generate_embedding.return_value = [0.1] * 1024
+        mock_source_embedding.generate_embedding.return_value = [0.1] * 1536
         mock_target_embedding.generate_embedding.return_value = [0.2] * 1536
         mock_target_embedding.generate_embeddings_batch.return_value = [
             [0.3] * 1536,
@@ -478,12 +485,12 @@ class TestMigrationIntegration:
         mock_source_vector.search_points.return_value = [
             {
                 "id": "doc1",
-                "vector": [0.1] * 1024,
+                "vector": [0.1] * 1536,
                 "payload": {"content": "Test document 1", "title": "Doc 1"},
             },
             {
                 "id": "doc2",
-                "vector": [0.2] * 1024,
+                "vector": [0.2] * 1536,
                 "payload": {"content": "Test document 2", "title": "Doc 2"},
             },
         ]
@@ -492,27 +499,24 @@ class TestMigrationIntegration:
         mock_target_vector.upsert_points.return_value = True
 
         # Configure factory to return appropriate services
-        def get_embedding_service(provider, config):
-            if provider == EmbeddingProvider.OLLAMA:
-                return mock_source_embedding
-            else:
-                return mock_target_embedding
-
-        def get_vector_service(provider, config):
-            if provider == VectorProvider.QDRANT_LOCAL:
-                return mock_source_vector
-            else:
-                return mock_target_vector
-
-        mock_factory_instance.get_embedding_service.side_effect = get_embedding_service
-        mock_factory_instance.get_vector_service.side_effect = get_vector_service
+        mock_factory_instance.get_embedding_service.side_effect = [
+            mock_source_embedding,
+            mock_target_embedding,
+        ]
+        mock_factory_instance.get_vector_service.side_effect = [
+            mock_source_vector,
+            mock_target_vector,
+        ]
 
         # Create configurations
         source_config = Config(
-            embedding_provider=EmbeddingProvider.OLLAMA,
-            vector_provider=VectorProvider.QDRANT_LOCAL,
+            embedding_provider=EmbeddingProvider.OPENAI,
+            vector_provider=VectorProvider.QDRANT_CLOUD,
             qdrant_collection="test_collection",
-            vector_size=1024,
+            vector_size=1536,
+            openai_api_key="sk-source",
+            qdrant_cloud_url="https://source.qdrant.tech",
+            qdrant_api_key="source-key",
         )
 
         target_config = Config(
@@ -537,5 +541,6 @@ class TestMigrationIntegration:
 
         # Verify migration steps were performed
         mock_target_vector.create_collection.assert_called_once()
-        mock_target_embedding.generate_embeddings_batch.assert_called_once()
+        mock_source_embedding.generate_embeddings_batch.assert_not_called()
+        mock_target_embedding.generate_embeddings_batch.assert_not_called()
         mock_target_vector.upsert_points.assert_called_once()
