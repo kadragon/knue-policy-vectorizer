@@ -5,6 +5,8 @@ Tests for Qdrant Cloud service implementation
 from typing import Any, Dict, List
 from unittest.mock import MagicMock, Mock, patch
 
+import json
+
 import pytest
 
 from src.services.qdrant_service_cloud import (
@@ -19,7 +21,7 @@ from src.utils.providers import VectorServiceInterface
 class TestQdrantCloudService:
     """Test Qdrant Cloud service implementation"""
 
-    def test_service_implements_interface(self):
+    def test_service_implements_interface(self) -> None:
         """Test that QdrantCloudService implements VectorServiceInterface"""
         with patch("src.services.qdrant_service_cloud.QdrantClient"):
             service = QdrantCloudService(
@@ -27,7 +29,7 @@ class TestQdrantCloudService:
             )
             assert isinstance(service, VectorServiceInterface)
 
-    def test_service_initialization(self):
+    def test_service_initialization(self) -> None:
         """Test service initialization with different parameters"""
         with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
@@ -53,7 +55,7 @@ class TestQdrantCloudService:
             assert service.timeout == 60
             assert service.prefer_grpc is True
 
-    def test_client_initialization_with_authentication(self):
+    def test_client_initialization_with_authentication(self) -> None:
         """Test Qdrant client initialization with API key authentication"""
         with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
@@ -70,7 +72,7 @@ class TestQdrantCloudService:
                 prefer_grpc=False,
             )
 
-    def test_create_collection_success(self):
+    def test_create_collection_success(self) -> None:
         """Test successful collection creation"""
         with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
@@ -93,7 +95,7 @@ class TestQdrantCloudService:
             assert call_args[1]["vectors_config"].size == 1024
             assert call_args[1]["vectors_config"].distance == Distance.COSINE
 
-    def test_delete_collection_success(self):
+    def test_delete_collection_success(self) -> None:
         """Test successful collection deletion"""
         with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
@@ -108,7 +110,7 @@ class TestQdrantCloudService:
             assert result is True
             mock_instance.delete_collection.assert_called_once_with("test_collection")
 
-    def test_collection_exists_true(self):
+    def test_collection_exists_true(self) -> None:
         """Test collection existence check - collection exists"""
         with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
@@ -124,7 +126,7 @@ class TestQdrantCloudService:
             assert result is True
             mock_instance.get_collection.assert_called_once_with("test_collection")
 
-    def test_collection_exists_false(self):
+    def test_collection_exists_false(self) -> None:
         """Test collection existence check - collection doesn't exist"""
         with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
@@ -132,8 +134,8 @@ class TestQdrantCloudService:
 
             mock_response = UnexpectedResponse(
                 status_code=404,
-                content={"detail": "Collection not found"},
-                headers={},
+                content=json.dumps({"detail": "Collection not found"}).encode(),
+                headers={},  # type: ignore[arg-type]
                 reason_phrase="Not Found",
             )
             mock_instance.get_collection.side_effect = mock_response
@@ -146,7 +148,7 @@ class TestQdrantCloudService:
             result = service.collection_exists("nonexistent_collection")
             assert result is False
 
-    def test_upsert_points_success(self):
+    def test_upsert_points_success(self) -> None:
         """Test successful point upsertion"""
         with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
@@ -171,7 +173,7 @@ class TestQdrantCloudService:
             assert result is True
             mock_instance.upsert.assert_called_once()
 
-    def test_upsert_points_batch_chunking(self):
+    def test_upsert_points_batch_chunking(self) -> None:
         """Test batch upsertion with automatic chunking"""
         with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
@@ -198,7 +200,7 @@ class TestQdrantCloudService:
             assert result is True
             assert mock_instance.upsert.call_count == 3
 
-    def test_delete_points_success(self):
+    def test_delete_points_success(self) -> None:
         """Test successful point deletion"""
         with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
@@ -216,7 +218,7 @@ class TestQdrantCloudService:
             assert result is True
             mock_instance.delete.assert_called_once()
 
-    def test_search_points_success(self):
+    def test_search_points_success(self) -> None:
         """Test successful point search"""
         with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
@@ -248,7 +250,7 @@ class TestQdrantCloudService:
 
             mock_instance.search.assert_called_once()
 
-    def test_health_check_success(self):
+    def test_health_check_success(self) -> None:
         """Test successful health check"""
         with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
@@ -263,7 +265,7 @@ class TestQdrantCloudService:
             assert result is True
             mock_instance.get_collections.assert_called_once()
 
-    def test_health_check_failure(self):
+    def test_health_check_failure(self) -> None:
         """Test health check failure"""
         with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
@@ -277,7 +279,7 @@ class TestQdrantCloudService:
             result = service.health_check()
             assert result is False
 
-    def test_authentication_error_handling(self):
+    def test_authentication_error_handling(self) -> None:
         """Test handling of authentication errors"""
         with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
@@ -285,8 +287,8 @@ class TestQdrantCloudService:
 
             auth_error = UnexpectedResponse(
                 status_code=401,
-                content={"detail": "Invalid API key"},
-                headers={},
+                content=json.dumps({"detail": "Invalid API key"}).encode(),
+                headers={},  # type: ignore[arg-type]
                 reason_phrase="Unauthorized",
             )
             mock_instance.get_collections.side_effect = auth_error
@@ -301,13 +303,13 @@ class TestQdrantCloudService:
             ):
                 service.health_check()
 
-    def test_connection_error_handling(self):
+    def test_connection_error_handling(self) -> None:
         """Test handling of connection errors"""
         with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
             from qdrant_client.http.exceptions import ResponseHandlingException
 
-            conn_error = ResponseHandlingException("Connection timeout")
+            conn_error = ResponseHandlingException(Exception("Connection timeout"))
             mock_instance.get_collections.side_effect = conn_error
             mock_client.return_value = mock_instance
 
@@ -318,7 +320,7 @@ class TestQdrantCloudService:
             with pytest.raises(QdrantCloudConnectionError, match="Connection failed"):
                 service.health_check()
 
-    def test_generic_qdrant_error_handling(self):
+    def test_generic_qdrant_error_handling(self) -> None:
         """Test handling of generic Qdrant errors"""
         with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
@@ -326,8 +328,8 @@ class TestQdrantCloudService:
 
             generic_error = UnexpectedResponse(
                 status_code=500,
-                content={"detail": "Internal server error"},
-                headers={},
+                content=json.dumps({"detail": "Internal server error"}).encode(),
+                headers={},  # type: ignore[arg-type]
                 reason_phrase="Internal Server Error",
             )
             mock_instance.create_collection.side_effect = generic_error
@@ -340,7 +342,7 @@ class TestQdrantCloudService:
             with pytest.raises(QdrantCloudError, match="Qdrant Cloud operation failed"):
                 service.create_collection("test_collection", 1024)
 
-    def test_invalid_url_handling(self):
+    def test_invalid_url_handling(self) -> None:
         """Test handling of invalid URLs"""
         with patch("src.services.qdrant_service_cloud.QdrantClient"):
             with pytest.raises(ValueError, match="Qdrant Cloud requires HTTPS"):
@@ -349,12 +351,12 @@ class TestQdrantCloudService:
                     api_key="test-key",
                 )
 
-    def test_missing_api_key_handling(self):
+    def test_missing_api_key_handling(self) -> None:
         """Test handling of missing API key"""
         with pytest.raises(ValueError, match="API key is required"):
             QdrantCloudService(url="https://test.qdrant.tech", api_key="")
 
-    def test_get_collection_info(self):
+    def test_get_collection_info(self) -> None:
         """Test getting collection information"""
         with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
@@ -378,7 +380,7 @@ class TestQdrantCloudService:
             }
             assert info == expected
 
-    def test_batch_size_configuration(self):
+    def test_batch_size_configuration(self) -> None:
         """Test batch size configuration"""
         with patch("qdrant_client.QdrantClient"):
             service = QdrantCloudService(
@@ -386,7 +388,7 @@ class TestQdrantCloudService:
             )
             assert service.batch_size == 50
 
-    def test_prefer_grpc_configuration(self):
+    def test_prefer_grpc_configuration(self) -> None:
         """Test gRPC preference configuration"""
         with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             service = QdrantCloudService(
@@ -400,7 +402,7 @@ class TestQdrantCloudService:
                 prefer_grpc=True,
             )
 
-    def test_point_validation(self):
+    def test_point_validation(self) -> None:
         """Test point data validation"""
         with patch("src.services.qdrant_service_cloud.QdrantClient") as mock_client:
             mock_instance = Mock()
@@ -416,7 +418,7 @@ class TestQdrantCloudService:
             with pytest.raises(QdrantCloudError, match="Invalid point structure"):
                 service.upsert_points("test_collection", invalid_points)
 
-    def test_url_validation(self):
+    def test_url_validation(self) -> None:
         """Test URL validation for cloud service"""
         # Valid HTTPS URLs should work
         with patch("src.services.qdrant_service_cloud.QdrantClient"):

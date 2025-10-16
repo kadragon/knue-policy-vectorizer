@@ -31,8 +31,8 @@ try:
         VectorServiceInterface,
     )
 except Exception:  # pragma: no cover - fallback when imported as a script
-    from src.config.config import Config  # type: ignore
-    from src.utils.providers import (  # type: ignore
+    from src.config.config import Config
+    from src.utils.providers import (
         EmbeddingProvider,
         EmbeddingServiceInterface,
         ProviderFactory,
@@ -54,10 +54,10 @@ class MigrationReport:
     total_documents: int = 0
     migrated_documents: int = 0
     failed_documents: int = 0
-    errors: List[str] = None
-    performance_metrics: Dict[str, float] = None
+    errors: Optional[List[str]] = None
+    performance_metrics: Optional[Dict[str, float]] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.errors is None:
             self.errors = []
         if self.performance_metrics is None:
@@ -103,9 +103,9 @@ class CompatibilityCheck:
     dimension_match: bool
     source_dimensions: int
     target_dimensions: int
-    warnings: List[str] = None
+    warnings: Optional[List[str]] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.warnings is None:
             self.warnings = []
 
@@ -132,10 +132,10 @@ class MigrationManager:
         self.factory = ProviderFactory()
 
         # Initialize services
-        self._source_embedding = None
-        self._target_embedding = None
-        self._source_vector = None
-        self._target_vector = None
+        self._source_embedding: Optional[EmbeddingServiceInterface] = None
+        self._target_embedding: Optional[EmbeddingServiceInterface] = None
+        self._source_vector: Optional[VectorServiceInterface] = None
+        self._target_vector: Optional[VectorServiceInterface] = None
 
     @property
     def source_embedding_service(self) -> EmbeddingServiceInterface:
@@ -394,7 +394,7 @@ class MigrationManager:
         """
         self.logger.info("Creating backup", backup_path=backup_path)
 
-        backup_data = {
+        backup_data: Dict[str, Any] = {
             "timestamp": datetime.now().isoformat(),
             "source_collection": self.source_config.qdrant_collection,
             "collection_name": self.source_config.qdrant_collection,
@@ -538,17 +538,17 @@ class MigrationManager:
                 backup_path = f"backups/migration_backup_{int(time.time())}.json"
                 backup_result = self.create_backup(backup_path)
                 if not backup_result["success"]:
-                    report.errors.append(f"Backup failed: {backup_result['error']}")
+                    report.errors.append(f"Backup failed: {backup_result['error']}")  # type: ignore[union-attr]
                     return report
 
-                report.performance_metrics["backup_points"] = backup_result[
+                report.performance_metrics["backup_points"] = backup_result[  # type: ignore[index]
                     "points_backed_up"
                 ]
 
             # Check compatibility
             compatibility = self.check_compatibility()
             if not compatibility.fully_compatible:
-                report.errors.extend(compatibility.warnings)
+                report.errors.extend(compatibility.warnings)  # type: ignore[union-attr,arg-type]
                 if not compatibility.dimension_match:
                     self.logger.warning(
                         "Dimension mismatch detected, will re-embed documents"
@@ -648,7 +648,7 @@ class MigrationManager:
 
                 except Exception as e:
                     error_msg = f"Batch {i//batch_size + 1} failed: {str(e)}"
-                    report.errors.append(error_msg)
+                    report.errors.append(error_msg)  # type: ignore[union-attr]
                     report.failed_documents += len(batch)
                     self.logger.error(
                         "Batch migration failed",
@@ -658,18 +658,22 @@ class MigrationManager:
 
             # Calculate performance metrics
             if embedding_times:
-                report.performance_metrics["avg_embedding_time"] = sum(
+                report.performance_metrics["avg_embedding_time"] = sum(  # type: ignore[index]
                     embedding_times
-                ) / len(embedding_times)
-                report.performance_metrics["total_embedding_time"] = sum(
+                ) / len(
+                    embedding_times
+                )
+                report.performance_metrics["total_embedding_time"] = sum(  # type: ignore[index]
                     embedding_times
                 )
 
             if storage_times:
-                report.performance_metrics["avg_storage_time"] = sum(
+                report.performance_metrics["avg_storage_time"] = sum(  # type: ignore[index]
                     storage_times
-                ) / len(storage_times)
-                report.performance_metrics["total_storage_time"] = sum(storage_times)
+                ) / len(
+                    storage_times
+                )
+                report.performance_metrics["total_storage_time"] = sum(storage_times)  # type: ignore[index]
 
             report.end_time = datetime.now()
 
@@ -682,7 +686,7 @@ class MigrationManager:
             )
 
         except Exception as e:
-            report.errors.append(f"Migration failed: {str(e)}")
+            report.errors.append(f"Migration failed: {str(e)}")  # type: ignore[union-attr]
             report.end_time = datetime.now()
             self.logger.error("Migration failed", error=str(e))
 
@@ -692,7 +696,7 @@ class MigrationManager:
         """Compare performance between source and target providers"""
         self.logger.info("Starting performance comparison")
 
-        comparison = {
+        comparison: Dict[str, Any] = {
             "test_size": len(test_texts),
             "source_provider": {
                 "embedding": str(self.source_config.embedding_provider),
@@ -793,7 +797,7 @@ class MigrationManager:
                 }
 
                 # Clean up test points
-                test_ids = [point["id"] for point in test_points]
+                test_ids = [str(point["id"]) for point in test_points]
                 self.source_vector_service.delete_points(source_collection, test_ids)
                 self.target_vector_service.delete_points(target_collection, test_ids)
 
@@ -808,7 +812,7 @@ def create_migration_config(
     source_vector: str,
     target_embedding: str,
     target_vector: str,
-    **kwargs,
+    **kwargs: Any,
 ) -> Tuple[Config, Config]:
     """Create source and target configurations for migration"""
 

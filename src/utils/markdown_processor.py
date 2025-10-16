@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import frontmatter
+import frontmatter  # type: ignore[import-untyped]
 import requests
 from bs4 import BeautifulSoup
 
@@ -18,11 +18,11 @@ from src.utils.logger import setup_logger
 class MarkdownProcessor:
     """Processes markdown documents for vectorization."""
 
-    def __init__(self, config=None):
+    def __init__(self, config: Optional[Any] = None) -> None:
         """Initialize the MarkdownProcessor."""
         # Use config-provided log level when available
         if config is None:
-            from config import Config
+            from config import Config  # type: ignore[attr-defined]
 
             config = Config()
         self.logger = setup_logger(
@@ -43,8 +43,8 @@ class MarkdownProcessor:
         self.chunk_overlap = config.chunk_overlap
 
         # Policy mapping cache
-        self._policy_mapping_cache = None
-        self._cache_timestamp = None
+        self._policy_mapping_cache: Optional[Dict[str, int]] = None
+        self._cache_timestamp: Optional[float] = None
         self._cache_duration = 3600  # Cache for 1 hour
 
     def remove_frontmatter(
@@ -66,7 +66,7 @@ class MarkdownProcessor:
 
             # If metadata was parsed, return content without frontmatter
             if post.metadata:
-                clean_content = post.content
+                clean_content: str = post.content
                 metadata = dict(post.metadata)
                 self.logger.debug(
                     "YAML frontmatter removed", metadata_keys=list(post.metadata.keys())
@@ -94,13 +94,13 @@ class MarkdownProcessor:
                 if end_idx > 0:
                     # Remove frontmatter and return remaining content
                     remaining_lines = lines[end_idx + 1 :]
-                    clean_content = "\n".join(remaining_lines).lstrip("\n")
+                    clean_content: str = "\n".join(remaining_lines).lstrip("\n")  # type: ignore[no-redef]
                     frontmatter_lines = lines[1:end_idx]
 
                     if return_metadata:
                         try:
                             try:
-                                import tomllib  # type: ignore[attr-defined]
+                                import tomllib
                             except (
                                 ModuleNotFoundError
                             ):  # pragma: no cover - Python <3.11 fallback
@@ -348,8 +348,8 @@ class MarkdownProcessor:
                 try:
                     # Extract fileNo from href
                     href = link.get("href", "")
-                    if "fileNo=" in href:
-                        file_no_match = re.search(r"fileNo=(\d+)", href)
+                    if "fileNo=" in href:  # type: ignore[operator]
+                        file_no_match = re.search(r"fileNo=(\d+)", href)  # type: ignore[arg-type]
                         if file_no_match:
                             file_no = int(file_no_match.group(1))
 
@@ -621,7 +621,7 @@ class MarkdownProcessor:
         # Split content into sentences/paragraphs for better splitting points
         lines = content.split("\n")
         sub_chunks = []
-        current_sub_chunk = []
+        current_sub_chunk: list[str] = []
         current_tokens = 0
         sub_chunk_index = 0
 
@@ -651,7 +651,7 @@ class MarkdownProcessor:
             if line_tokens > target_tokens:
                 # Split long line by sentences or words
                 words = line.split(" ")
-                word_chunk = []
+                word_chunk: list[str] = []
                 word_chunk_tokens = 0
 
                 for word in words:
@@ -730,7 +730,7 @@ class MarkdownProcessor:
         return sub_chunks
 
     def chunk_markdown_content(
-        self, content: str, max_tokens: int = None
+        self, content: str, max_tokens: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """Intelligently chunk markdown content with configurable chunking strategy.
 
@@ -790,7 +790,7 @@ class MarkdownProcessor:
         # Create chunks with intelligent splitting
         chunk_index = 0
         current_line = 0
-        previous_chunk_overlap = []  # Lines from previous chunk for context
+        previous_chunk_overlap: list[str] = []  # Lines from previous chunk for context
 
         def create_chunk(
             start_line: int, end_line: int, include_overlap: bool = True
@@ -812,8 +812,8 @@ class MarkdownProcessor:
             # Find current section for this chunk
             section_title = ""
             for header in reversed(headers):
-                if header["line"] < end_line:
-                    section_title = header["title"]
+                if int(header["line"]) < end_line:  # type: ignore[call-overload]
+                    section_title = str(header["title"])
                     break
 
             # Calculate metrics (exclude overlap from token limit validation)
@@ -825,7 +825,7 @@ class MarkdownProcessor:
             char_count = len(chunk_content)
 
             # Prepare overlap for next chunk (last 200 tokens worth of content)
-            overlap_lines = []
+            overlap_lines: list[str] = []
             if end_line < len(lines):  # Not the last chunk
                 # Calculate lines for ~200 tokens of overlap
                 overlap_token_count = 0
@@ -1008,9 +1008,14 @@ class MarkdownProcessor:
 
         try:
             # Step 1: Remove frontmatter
-            content_no_frontmatter, frontmatter_metadata = self.remove_frontmatter(
+            frontmatter_result = self.remove_frontmatter(
                 raw_content, return_metadata=True
             )
+            if isinstance(frontmatter_result, tuple):
+                content_no_frontmatter, frontmatter_metadata = frontmatter_result
+            else:
+                content_no_frontmatter = frontmatter_result
+                frontmatter_metadata = {}
 
             # Step 2: Extract title
             title = self.extract_title(content_no_frontmatter, filename)
@@ -1097,9 +1102,14 @@ class MarkdownProcessor:
         """
         self.logger.debug("Processing markdown for R2", filename=filename)
         try:
-            content_no_frontmatter, frontmatter_metadata = self.remove_frontmatter(
+            frontmatter_result = self.remove_frontmatter(
                 raw_content, return_metadata=True
             )
+            if isinstance(frontmatter_result, tuple):
+                content_no_frontmatter, frontmatter_metadata = frontmatter_result
+            else:
+                content_no_frontmatter = frontmatter_result
+                frontmatter_metadata = {}
             title = self.extract_title(content_no_frontmatter, filename)
             clean_content = self.clean_content(content_no_frontmatter)
 

@@ -5,17 +5,19 @@ import shutil
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any, Dict, Generator, Tuple
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from git import Repo
+from pytest import TempPathFactory
 
 
 @pytest.fixture(autouse=True)
-def sys_path_src():
+def sys_path_src() -> Generator[None, None, None]:
     """Temporarily add src to sys.path for imports."""
     original = list(sys.path)
-    src_path = os.path.join(os.path.dirname(__file__), "..", "src")
+    src_path = os.path.join(os.path.dirname(__file__), "..", "..", "src")
     if src_path not in sys.path:
         sys.path.insert(0, src_path)
     try:
@@ -25,7 +27,7 @@ def sys_path_src():
 
 
 @pytest.fixture
-def watcher_config(tmp_path):
+def watcher_config(tmp_path: Path) -> Dict[str, Any]:
     """Provide a clean, per-test configuration using tmp_path."""
     return {
         "repo_url": "https://github.com/test/test-repo.git",
@@ -37,7 +39,7 @@ def watcher_config(tmp_path):
 class TestGitWatcher:
     """Test Git repository watcher functionality."""
 
-    def test_git_watcher_initialization(self, watcher_config):
+    def test_git_watcher_initialization(self, watcher_config: Any) -> None:
         from src.core.git_watcher import GitWatcher
 
         watcher = GitWatcher(watcher_config)
@@ -45,7 +47,7 @@ class TestGitWatcher:
         assert watcher.branch == watcher_config["branch"]
         assert str(watcher.cache_dir) == watcher_config["cache_dir"]
 
-    def test_git_watcher_clone_repository(self, watcher_config):
+    def test_git_watcher_clone_repository(self, watcher_config: Any) -> None:
         from src.core.git_watcher import GitWatcher
 
         watcher = GitWatcher(watcher_config)
@@ -67,7 +69,7 @@ class TestGitWatcher:
             )
             assert result == mock_repo
 
-    def test_git_watcher_pull_updates(self, watcher_config):
+    def test_git_watcher_pull_updates(self, watcher_config: Any) -> None:
         from src.core.git_watcher import GitWatcher
 
         watcher = GitWatcher(watcher_config)
@@ -81,7 +83,7 @@ class TestGitWatcher:
 
         mock_origin.pull.assert_called_once()
 
-    def test_git_watcher_get_current_commit(self, watcher_config):
+    def test_git_watcher_get_current_commit(self, watcher_config: Any) -> None:
         from src.core.git_watcher import GitWatcher
 
         watcher = GitWatcher(watcher_config)
@@ -94,7 +96,7 @@ class TestGitWatcher:
         commit = watcher.get_current_commit()
         assert commit == test_commit
 
-    def test_git_watcher_has_changes(self, watcher_config):
+    def test_git_watcher_has_changes(self, watcher_config: Any) -> None:
         from src.core.git_watcher import GitWatcher
 
         watcher = GitWatcher(watcher_config)
@@ -108,7 +110,7 @@ class TestGitWatcher:
         # Test case 3: Different commits
         assert watcher.has_changes("old_commit", "new_commit") == True
 
-    def test_git_watcher_get_markdown_files(self, watcher_config, tmp_path):
+    def test_git_watcher_get_markdown_files(self, watcher_config: Any, tmp_path: Any) -> None:
         from unittest.mock import Mock
 
         from src.core.git_watcher import GitWatcher
@@ -131,7 +133,7 @@ class TestGitWatcher:
         expected_files = ["policy1.md", "subdir/policy2.md"]
         assert files == expected_files
 
-    def test_git_watcher_get_changed_files(self, watcher_config):
+    def test_git_watcher_get_changed_files(self, watcher_config: Any) -> None:
         from src.core.git_watcher import GitWatcher
 
         watcher = GitWatcher(watcher_config)
@@ -160,7 +162,7 @@ class TestGitWatcher:
         assert deleted == ["policy3.md"]
         assert renamed == []
 
-    def test_git_watcher_get_file_commit_info(self, watcher_config):
+    def test_git_watcher_get_file_commit_info(self, watcher_config: Any) -> None:
         from src.core.git_watcher import GitWatcher
 
         watcher = GitWatcher(watcher_config)
@@ -179,7 +181,7 @@ class TestGitWatcher:
         assert commit_info["commit_date"] == "2024-01-15T10:30:00"
         mock_repo.iter_commits.assert_called_once_with(paths="policy1.md", max_count=1)
 
-    def test_git_watcher_get_changed_files_with_renames(self, watcher_config):
+    def test_git_watcher_get_changed_files_with_renames(self, watcher_config: Any) -> None:
         """Test handling of renamed files."""
         from src.core.git_watcher import GitWatcher
 
@@ -213,7 +215,7 @@ class TestGitWatcher:
         assert deleted == []
         assert renamed == [("old_policy.md", "new_policy.md")]
 
-    def test_git_watcher_get_changed_files_with_type_changes(self, watcher_config):
+    def test_git_watcher_get_changed_files_with_type_changes(self, watcher_config: Any) -> None:
         """Test handling of type changed files."""
         from src.core.git_watcher import GitWatcher
 
@@ -245,7 +247,7 @@ class TestGitWatcher:
         assert deleted == []
         assert renamed == []
 
-    def test_git_watcher_get_changed_files_rename_edge_cases(self, watcher_config):
+    def test_git_watcher_get_changed_files_rename_edge_cases(self, watcher_config: Any) -> None:
         """Test edge cases for rename handling."""
         from src.core.git_watcher import GitWatcher
 
@@ -286,7 +288,7 @@ class TestGitWatcherIntegration:
     """Integration tests for GitWatcher (will require actual git operations)."""
 
     @pytest.fixture
-    def temp_git_repo(self, tmp_path):
+    def temp_git_repo(self: Any, tmp_path: Path) -> Any:
         """Create a temporary git repository for testing."""
         temp_dir = tmp_path / "repo"
         temp_dir.mkdir(parents=True, exist_ok=True)
@@ -300,7 +302,7 @@ class TestGitWatcherIntegration:
 
         yield str(temp_dir), repo
 
-    def test_git_watcher_real_operations(self, temp_git_repo):
+    def test_git_watcher_real_operations(self, temp_git_repo: Any) -> None:
         temp_dir, repo = temp_git_repo
 
         from src.core.git_watcher import GitWatcher
@@ -319,12 +321,12 @@ class TestGitWatcherIntegration:
         assert isinstance(current_commit, str) and len(current_commit) in (40, 64)
 
     @pytest.mark.integration
-    def test_git_watcher_with_real_repository(self, tmp_path):
+    def test_git_watcher_with_real_repository(self, tmp_path: Any) -> None:
         """Integration test with actual KNUE Policy Hub repository."""
         # This test will be skipped in CI/CD but can be run manually
         pytest.skip("Manual integration test - requires network access")
 
-        from src.core.git_watcher import GitWatcher
+        from src.core.git_watcher import GitWatcher  # type: ignore[unreachable]
 
         config = {
             "repo_url": "https://github.com/kadragon/KNUE-Policy-Hub.git",
@@ -349,14 +351,14 @@ class TestGitWatcherIntegration:
 
 
 # Tests to verify our test setup is correct
-def test_git_module_available():
+def test_git_module_available() -> None:
     """Test that GitPython is available."""
     import git
 
     assert hasattr(git, "Repo")
 
 
-def test_pathlib_available():
+def test_pathlib_available() -> None:
     """Test that pathlib is available for file operations."""
     from pathlib import Path
 
@@ -364,7 +366,7 @@ def test_pathlib_available():
     assert test_path.exists() or not test_path.exists()  # Either is fine
 
 
-def test_tempfile_operations():
+def test_tempfile_operations() -> None:
     """Test that we can create and cleanup temporary directories."""
     temp_dir = tempfile.mkdtemp()
     assert os.path.exists(temp_dir)
@@ -385,8 +387,8 @@ class TestGitWatcherDetails:
     """Additional tests for URL building, discovery rules, and sync behavior."""
 
     def _make_watcher(
-        self, tmp_path, repo_url="https://example.com/repo.git", branch="main"
-    ):
+        self, tmp_path: Any, repo_url: str = "https://example.com/repo.git", branch: str = "main"
+    ) -> Tuple[Any, Any]:
         from src.core.git_watcher import GitWatcher
 
         cache_dir = tmp_path / "cache"
@@ -417,11 +419,11 @@ class TestGitWatcherDetails:
             ),
         ],
     )
-    def test_get_github_file_url(self, tmp_path, repo_url, branch, file_path, expected):
+    def test_get_github_file_url(self, tmp_path: Any, repo_url: Any, branch: Any, file_path: Any, expected: Any) -> None:
         watcher, _ = self._make_watcher(tmp_path, repo_url=repo_url, branch=branch)
         assert watcher.get_github_file_url(file_path) == expected
 
-    def test_markdown_discovery_excludes_readme_nested(self, tmp_path):
+    def test_markdown_discovery_excludes_readme_nested(self, tmp_path: Any) -> None:
         watcher, cache_dir = self._make_watcher(tmp_path)
 
         # Create nested structure with README files and markdowns
@@ -435,12 +437,12 @@ class TestGitWatcherDetails:
         files = watcher.get_markdown_files()
         assert files == ["policy1.md", "sub/policy2.md"]
 
-    def test_get_file_content_missing_raises(self, tmp_path):
+    def test_get_file_content_missing_raises(self, tmp_path: Any) -> None:
         watcher, _ = self._make_watcher(tmp_path)
         with pytest.raises(FileNotFoundError):
             watcher.get_file_content("does/not/exist.md")
 
-    def test_sync_repository_change_detection(self, tmp_path):
+    def test_sync_repository_change_detection(self, tmp_path: Any) -> None:
         watcher, _ = self._make_watcher(tmp_path)
 
         mock_repo = watcher._repo
@@ -450,7 +452,7 @@ class TestGitWatcherDetails:
         mock_head.commit = mock_commit
         mock_repo.head = mock_head
 
-        def _pull_side_effect():
+        def _pull_side_effect() -> None:
             # After pull, HEAD should point to a new commit
             mock_commit.hexsha = "new_sha"
 

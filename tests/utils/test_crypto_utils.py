@@ -5,7 +5,7 @@ import pytest
 from src.utils.crypto_utils import CryptoUtils
 
 
-def test_data_integrity_hash():
+def test_data_integrity_hash() -> None:
     """Test data integrity hashing function."""
     # Test basic functionality
     data = "test configuration data"
@@ -27,7 +27,7 @@ def test_data_integrity_hash():
     assert hash1 != hash3
 
 
-def test_data_integrity_hash_consistency():
+def test_data_integrity_hash_consistency() -> None:
     """Test that data integrity hash is consistent across calls."""
     test_cases = [
         "",
@@ -43,7 +43,7 @@ def test_data_integrity_hash_consistency():
         assert hash1 == hash2, f"Hash inconsistent for: {data[:50]}"
 
 
-def test_password_hashing_basic():
+def test_password_hashing_basic() -> None:
     """Test basic password hashing functionality."""
     password = "test_password_123"
 
@@ -64,7 +64,7 @@ def test_password_hashing_basic():
     assert len(salt2) == 32
 
 
-def test_password_hashing_with_salt():
+def test_password_hashing_with_salt() -> None:
     """Test password hashing with provided salt."""
     password = "test_password_123"
     salt = b"a" * 32  # Fixed salt
@@ -77,7 +77,7 @@ def test_password_hashing_with_salt():
     assert returned_salt1 == returned_salt2 == salt
 
 
-def test_password_verification():
+def test_password_verification() -> None:
     """Test password verification function."""
     password = "correct_password"
     wrong_password = "wrong_password"
@@ -92,7 +92,7 @@ def test_password_verification():
     assert not CryptoUtils.verify_password(wrong_password, stored_hash, salt)
 
 
-def test_password_security_properties():
+def test_password_security_properties() -> None:
     """Test security properties of password hashing."""
     password = "secure_password_123"
 
@@ -112,7 +112,7 @@ def test_password_security_properties():
         assert CryptoUtils.verify_password(password, hash_val, salt)
 
 
-def test_unicode_handling():
+def test_unicode_handling() -> None:
     """Test handling of Unicode characters."""
     # Test data integrity hash with Unicode
     unicode_data = "한국어 정책 문서 테스트 🔒"
@@ -126,7 +126,7 @@ def test_unicode_handling():
     assert CryptoUtils.verify_password(unicode_password, hash_val, salt)
 
 
-def test_edge_cases():
+def test_edge_cases() -> None:
     """Test edge cases and error conditions."""
     # Empty string
     empty_hash = CryptoUtils.calculate_data_integrity_hash("")

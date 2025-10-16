@@ -1,6 +1,7 @@
 """Tests for CLI provider selection and configuration functionality"""
 
 import os
+from typing import Any
 from unittest.mock import Mock, patch
 
 import click
@@ -15,7 +16,7 @@ from src.utils.providers import EmbeddingProvider, VectorProvider
 class TestCLIProviders:
     """Test CLI provider selection functionality"""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Setup test environment"""
         self.runner = CliRunner()
         for key in [
@@ -29,7 +30,7 @@ class TestCLIProviders:
         ]:
             os.environ.pop(key, None)
 
-    def test_list_providers_command(self):
+    def test_list_providers_command(self)-> None:
         """Test listing available providers"""
         # Import after implementing
         from src.pipelines.sync_pipeline import list_providers
@@ -41,7 +42,7 @@ class TestCLIProviders:
         assert "openai" in result.output
         assert "qdrant_cloud" in result.output
 
-    def test_configure_providers_interactive(self):
+    def test_configure_providers_interactive(self)-> None:
         """Test interactive provider configuration"""
         from src.pipelines.sync_pipeline import configure_providers
 
@@ -65,7 +66,7 @@ class TestCLIProviders:
             in result.output
         )
 
-    def test_configure_providers_with_validation_errors(self):
+    def test_configure_providers_with_validation_errors(self)-> None:
         """Test configuration with validation errors"""
         from src.pipelines.sync_pipeline import configure_providers
 
@@ -90,7 +91,7 @@ class TestCLIProviders:
             or "Configuration saved" in result.output
         )
 
-    def test_show_config_command(self):
+    def test_show_config_command(self)-> None:
         """Test showing current configuration"""
         from src.pipelines.sync_pipeline import show_config
 
@@ -100,7 +101,7 @@ class TestCLIProviders:
         assert "Embedding Provider:" in result.output
         assert "Vector Provider:" in result.output
 
-    def test_sync_with_provider_options(self):
+    def test_sync_with_provider_options(self)-> None:
         """Test sync command with provider options"""
         from src.pipelines.sync_pipeline import main
 
@@ -152,20 +153,15 @@ class TestCLIProviders:
     @patch("src.config.config.Config.from_env")
     @patch("src.services.cloudflare_r2_service.CloudflareR2Service")
     @patch("src.pipelines.sync_pipeline.CloudflareR2SyncPipeline")
-    def test_sync_cloudflare_r2_command(
-        self,
-        mock_pipeline,
-        mock_service,
-        mock_config_from_env,
-    ):
+    def test_sync_cloudflare_r2_command(self, mock_pipeline: Any, mock_service: Any, mock_config_from_env: Any)-> None:
         """Test successful Cloudflare R2 sync command."""
         from src.pipelines.sync_pipeline import sync_cloudflare_r2
 
         config = Config()
-        config.cloudflare_r2_account_id = "account123"
+        config.cloudflare_account_id = "account123"  
         config.cloudflare_r2_bucket = "knue-vectorstore"
         config.cloudflare_r2_endpoint = "https://account123.r2.cloudflarestorage.com"
-        config.validate_r2 = Mock()
+        config.validate_r2 = Mock()  # type: ignore[method-assign]  # type: ignore[method-assign]
 
         mock_config_from_env.return_value = config
         mock_instance = Mock()
@@ -179,29 +175,24 @@ class TestCLIProviders:
         }
         mock_pipeline.return_value = mock_instance
 
-        sync_cloudflare_r2.callback()
+        sync_cloudflare_r2.callback()  # type: ignore[misc]
         config.validate_r2.assert_called_once()
         mock_pipeline.assert_called_once()
 
     @patch("src.config.config.Config.from_env")
     @patch("src.services.cloudflare_r2_service.CloudflareR2Service")
     @patch("src.pipelines.sync_pipeline.CloudflareR2SyncPipeline")
-    def test_sync_cloudflare_r2_partial_failure_returns_nonzero_exit(
-        self,
-        mock_pipeline,
-        mock_service,
-        mock_config_from_env,
-    ):
+    def test_sync_cloudflare_r2_partial_failure_returns_nonzero_exit(self, mock_pipeline: Any, mock_service: Any, mock_config_from_env: Any)-> None:
         """Partial sync failures should surface as errors."""
         import click
 
         from src.pipelines.sync_pipeline import sync_cloudflare_r2
 
         config = Config()
-        config.cloudflare_r2_account_id = "account123"
+        config.cloudflare_account_id = "account123"
         config.cloudflare_r2_bucket = "knue-vectorstore"
         config.cloudflare_r2_endpoint = "https://account123.r2.cloudflarestorage.com"
-        config.validate_r2 = Mock()
+        config.validate_r2 = Mock()  # type: ignore[method-assign]
 
         mock_config_from_env.return_value = config
 
@@ -217,18 +208,14 @@ class TestCLIProviders:
         mock_pipeline.return_value = mock_instance
 
         with pytest.raises(click.ClickException):
-            sync_cloudflare_r2.callback()
+            sync_cloudflare_r2.callback()  # type: ignore[misc]
 
         config.validate_r2.assert_called_once()
         mock_pipeline.assert_called_once()
 
     @patch("src.pipelines.sync_pipeline.SyncPipeline")
     @patch("src.config.config.Config.from_env")
-    def test_sync_partial_failure_returns_nonzero_exit(
-        self,
-        mock_config_from_env,
-        mock_pipeline,
-    ):
+    def test_sync_partial_failure_returns_nonzero_exit(self, mock_config_from_env: Any, mock_pipeline: Any)-> None:
         """Partial failures in main sync command should exit non-zero."""
         from src.pipelines.sync_pipeline import sync
 
@@ -252,11 +239,11 @@ class TestCLIProviders:
         mock_pipeline.return_value = mock_instance
 
         with pytest.raises(click.ClickException):
-            sync.callback()
+                sync.callback()  # type: ignore[misc]
 
         mock_instance.sync.assert_called_once()
 
-    def test_health_command_with_providers(self):
+    def test_health_command_with_providers(self)-> None:
         """Test health command with different providers"""
         from src.pipelines.sync_pipeline import main
 
@@ -285,7 +272,7 @@ class TestCLIProviders:
         assert result.exit_code == 0
         assert "All services are healthy" in result.output
 
-    def test_test_providers_command(self):
+    def test_test_providers_command(self)-> None:
         """Test the test-providers command for connectivity validation"""
         from src.pipelines.sync_pipeline import test_providers
 
@@ -322,7 +309,7 @@ class TestCLIProviders:
         assert result.exit_code == 0
         assert "Provider connectivity test completed" in result.output
 
-    def test_migrate_providers_command(self):
+    def test_migrate_providers_command(self)-> None:
         """Test the migrate command for switching providers"""
         from src.pipelines.sync_pipeline import migrate_providers
 
@@ -348,7 +335,7 @@ class TestCLIProviders:
 
         assert result.exit_code == 0
 
-    def test_config_file_operations(self):
+    def test_config_file_operations(self)-> None:
         """Test configuration file save/load operations"""
         from src.pipelines.sync_pipeline import load_config_file
 
@@ -372,7 +359,7 @@ class TestCLIProviders:
 
             assert result.exit_code == 0
 
-    def test_provider_validation_in_cli(self):
+    def test_provider_validation_in_cli(self)-> None:
         """Test provider validation in CLI commands"""
         from src.pipelines.sync_pipeline import main
 
@@ -384,7 +371,7 @@ class TestCLIProviders:
         assert result.exit_code != 0
         assert "Invalid" in result.output or "Error" in result.output
 
-    def test_environment_variable_override(self):
+    def test_environment_variable_override(self)-> None:
         """Test that CLI options override environment variables"""
         from src.pipelines.sync_pipeline import main
 
@@ -425,7 +412,7 @@ class TestCLIProviders:
 
         assert result.exit_code == 0
 
-    def test_config_import(self):
+    def test_config_import(self)-> None:
         """Test configuration import functionality"""
         from src.pipelines.sync_pipeline import import_config
 
@@ -451,7 +438,7 @@ class TestCLIProviders:
 
             assert result.exit_code == 0
 
-    def test_provider_status_display(self):
+    def test_provider_status_display(self)-> None:
         """Test provider status display in health command"""
         from src.pipelines.sync_pipeline import main
 

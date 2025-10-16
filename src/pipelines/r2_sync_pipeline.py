@@ -22,10 +22,10 @@ except ImportError:  # pragma: no cover
     if str(project_root) not in sys.path:
         sys.path.append(str(project_root))
 
-    from src.config.config import Config  # type: ignore
-    from src.services.cloudflare_r2_service import CloudflareR2Service  # type: ignore
-    from src.utils.logger import setup_logger  # type: ignore
-    from src.utils.markdown_processor import MarkdownProcessor  # type: ignore
+    from src.config.config import Config
+    from src.services.cloudflare_r2_service import CloudflareR2Service
+    from src.utils.logger import setup_logger
+    from src.utils.markdown_processor import MarkdownProcessor
 
 logger = structlog.get_logger(__name__)
 

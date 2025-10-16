@@ -14,9 +14,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 import time
 
 import structlog
+from sync_pipeline import SyncError, SyncPipeline
 
 from config import Config
-from sync_pipeline import SyncError, SyncPipeline
 
 # Setup logging
 structlog.configure(

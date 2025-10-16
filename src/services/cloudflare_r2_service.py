@@ -293,7 +293,7 @@ class CloudflareR2Service:
             # ETag from head_object is double-quoted, remove them.
             if "ETag" in response:
                 response["ETag"] = response["ETag"].strip('"')
-            return response
+            return response  # type: ignore[no-any-return]
         except ClientError as e:
             if e.response["Error"]["Code"] == "404":
                 return None  # Object not found

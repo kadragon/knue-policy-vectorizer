@@ -3,7 +3,7 @@ Test suite for QdrantService class
 Tests for Qdrant vector store operations including collection management and point operations.
 """
 
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import MagicMock, AsyncMock, Mock, patch
 
 import numpy as np
 import pytest
@@ -24,7 +24,7 @@ from src.services.qdrant_service import QdrantError, QdrantService
 class TestQdrantServiceInit:
     """Test QdrantService initialization and connection"""
 
-    def test_init_with_default_params(self):
+    def test_init_with_default_params(self) -> None:
         """Test QdrantService initialization with default parameters"""
         service = QdrantService()
         assert service.host == "localhost"
@@ -33,7 +33,7 @@ class TestQdrantServiceInit:
         assert service.vector_size == 1024
         assert service.distance == Distance.COSINE
 
-    def test_init_with_custom_params(self):
+    def test_init_with_custom_params(self) -> None:
         """Test QdrantService initialization with custom parameters"""
         service = QdrantService(
             host="custom-host",
@@ -47,7 +47,7 @@ class TestQdrantServiceInit:
         assert service.vector_size == 512
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_client_property_lazy_initialization(self, mock_qdrant_client):
+    def test_client_property_lazy_initialization(self, mock_qdrant_client: MagicMock) -> None:
         """Test that Qdrant client is initialized lazily"""
         service = QdrantService()
 
@@ -66,7 +66,7 @@ class TestQdrantServiceHealth:
     """Test health check functionality"""
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_health_check_success(self, mock_qdrant_client):
+    def test_health_check_success(self, mock_qdrant_client: MagicMock) -> None:
         """Test successful health check"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -79,7 +79,7 @@ class TestQdrantServiceHealth:
         mock_client.get_collections.assert_called_once()
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_health_check_failure(self, mock_qdrant_client):
+    def test_health_check_failure(self, mock_qdrant_client: MagicMock) -> None:
         """Test health check failure"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -95,7 +95,7 @@ class TestQdrantServiceCollectionManagement:
     """Test collection management operations"""
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_collection_exists_true(self, mock_qdrant_client):
+    def test_collection_exists_true(self, mock_qdrant_client: MagicMock) -> None:
         """Test collection_exists returns True when collection exists"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -108,7 +108,7 @@ class TestQdrantServiceCollectionManagement:
         mock_client.collection_exists.assert_called_once_with("knue_policies")
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_collection_exists_false(self, mock_qdrant_client):
+    def test_collection_exists_false(self, mock_qdrant_client: MagicMock) -> None:
         """Test collection_exists returns False when collection doesn't exist"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -120,7 +120,7 @@ class TestQdrantServiceCollectionManagement:
         assert result is False
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_create_collection_success(self, mock_qdrant_client):
+    def test_create_collection_success(self, mock_qdrant_client: MagicMock) -> None:
         """Test successful collection creation"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -138,7 +138,7 @@ class TestQdrantServiceCollectionManagement:
         assert call_args[1]["vectors_config"].distance == Distance.COSINE
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_create_collection_already_exists(self, mock_qdrant_client):
+    def test_create_collection_already_exists(self, mock_qdrant_client: MagicMock) -> None:
         """Test collection creation when collection already exists"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -151,7 +151,7 @@ class TestQdrantServiceCollectionManagement:
         mock_client.create_collection.assert_not_called()
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_create_collection_failure(self, mock_qdrant_client):
+    def test_create_collection_failure(self, mock_qdrant_client: MagicMock) -> None:
         """Test collection creation failure"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -164,7 +164,7 @@ class TestQdrantServiceCollectionManagement:
             service.create_collection()
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_delete_collection_success(self, mock_qdrant_client):
+    def test_delete_collection_success(self, mock_qdrant_client: MagicMock) -> None:
         """Test successful collection deletion"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -176,7 +176,7 @@ class TestQdrantServiceCollectionManagement:
         mock_client.delete_collection.assert_called_once_with("knue_policies")
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_delete_collection_not_exists(self, mock_qdrant_client):
+    def test_delete_collection_not_exists(self, mock_qdrant_client: MagicMock) -> None:
         """Test collection deletion when collection doesn't exist"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -192,7 +192,7 @@ class TestQdrantServiceCollectionManagement:
 class TestQdrantServicePointOperations:
     """Test point CRUD operations"""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Setup test data"""
         self.sample_vector = np.random.rand(1024).tolist()
         self.sample_metadata = {
@@ -213,7 +213,7 @@ class TestQdrantServicePointOperations:
         }
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_upsert_point_success(self, mock_qdrant_client):
+    def test_upsert_point_success(self, mock_qdrant_client: MagicMock) -> None:
         """Test successful point upsert"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -242,7 +242,7 @@ class TestQdrantServicePointOperations:
         assert point.payload == self.sample_metadata
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_upsert_points_batch_success(self, mock_qdrant_client):
+    def test_upsert_points_batch_success(self, mock_qdrant_client: MagicMock) -> None:
         """Test successful batch point upsert"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -269,7 +269,7 @@ class TestQdrantServicePointOperations:
         assert len(call_args[1]["points"]) == 3
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_upsert_point_invalid_vector_size(self, mock_qdrant_client):
+    def test_upsert_point_invalid_vector_size(self, mock_qdrant_client: MagicMock) -> None:
         """Test upsert with invalid vector size"""
         service = QdrantService()
 
@@ -283,7 +283,7 @@ class TestQdrantServicePointOperations:
             )
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_upsert_point_missing_metadata(self, mock_qdrant_client):
+    def test_upsert_point_missing_metadata(self, mock_qdrant_client: MagicMock) -> None:
         """Test upsert with missing required metadata"""
         service = QdrantService()
 
@@ -297,7 +297,7 @@ class TestQdrantServicePointOperations:
             )
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_delete_point_success(self, mock_qdrant_client):
+    def test_delete_point_success(self, mock_qdrant_client: MagicMock) -> None:
         """Test successful point deletion"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -314,7 +314,7 @@ class TestQdrantServicePointOperations:
         )
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_delete_points_batch_success(self, mock_qdrant_client):
+    def test_delete_points_batch_success(self, mock_qdrant_client: MagicMock) -> None:
         """Test successful batch point deletion"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -337,7 +337,7 @@ class TestQdrantServiceSearch:
     """Test search and retrieval operations"""
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_search_points_success(self, mock_qdrant_client):
+    def test_search_points_success(self, mock_qdrant_client: MagicMock) -> None:
         """Test successful point search"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -363,7 +363,7 @@ class TestQdrantServiceSearch:
         )
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_get_point_success(self, mock_qdrant_client):
+    def test_get_point_success(self, mock_qdrant_client: MagicMock) -> None:
         """Test successful point retrieval"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -382,7 +382,7 @@ class TestQdrantServiceSearch:
         )
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_get_point_not_found(self, mock_qdrant_client):
+    def test_get_point_not_found(self, mock_qdrant_client: MagicMock) -> None:
         """Test point retrieval when point doesn't exist"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -398,7 +398,7 @@ class TestQdrantServiceErrorHandling:
     """Test error handling scenarios"""
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_client_connection_error(self, mock_qdrant_client):
+    def test_client_connection_error(self, mock_qdrant_client: MagicMock) -> None:
         """Test handling of client connection errors"""
         mock_qdrant_client.side_effect = Exception("Connection refused")
 
@@ -408,11 +408,11 @@ class TestQdrantServiceErrorHandling:
             _ = service.client
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_upsert_operation_failure(self, mock_qdrant_client):
+    def test_upsert_operation_failure(self, mock_qdrant_client: MagicMock) -> None:
         """Test handling of upsert operation failures"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
-        mock_client.upsert.side_effect = ResponseHandlingException("Server error")
+        mock_client.upsert.side_effect = ResponseHandlingException(Exception("Server error"))
 
         service = QdrantService()
         vector = np.random.rand(1024).tolist()
@@ -437,11 +437,11 @@ class TestQdrantServiceErrorHandling:
             service.upsert_point("test_doc_1", vector, metadata)
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_delete_operation_failure(self, mock_qdrant_client):
+    def test_delete_operation_failure(self, mock_qdrant_client: MagicMock) -> None:
         """Test handling of delete operation failures"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
-        mock_client.delete.side_effect = ResponseHandlingException("Server error")
+        mock_client.delete.side_effect = ResponseHandlingException(Exception("Server error"))
 
         service = QdrantService()
 
@@ -453,7 +453,7 @@ class TestQdrantServiceIntegration:
     """Integration-style tests with more realistic scenarios"""
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_full_lifecycle_workflow(self, mock_qdrant_client):
+    def test_full_lifecycle_workflow(self, mock_qdrant_client: MagicMock) -> None:
         """Test complete workflow: create collection, upsert points, search, delete"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -512,7 +512,7 @@ class TestQdrantServiceDocumentDeletion:
     """Test document chunk deletion operations"""
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_find_document_chunks_success(self, mock_qdrant_client):
+    def test_find_document_chunks_success(self, mock_qdrant_client: MagicMock) -> None:
         """Test successful document chunk finding"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -532,7 +532,7 @@ class TestQdrantServiceDocumentDeletion:
         mock_client.scroll.assert_called_once()
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_find_document_chunks_multiple_batches(self, mock_qdrant_client):
+    def test_find_document_chunks_multiple_batches(self, mock_qdrant_client: MagicMock) -> None:
         """Test finding chunks across multiple scroll batches"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -551,7 +551,7 @@ class TestQdrantServiceDocumentDeletion:
         assert mock_client.scroll.call_count == 2
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_find_document_chunks_no_results(self, mock_qdrant_client):
+    def test_find_document_chunks_no_results(self, mock_qdrant_client: MagicMock) -> None:
         """Test finding chunks when none exist"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -563,7 +563,7 @@ class TestQdrantServiceDocumentDeletion:
         assert result == []
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_find_document_chunks_limit_exceeded(self, mock_qdrant_client):
+    def test_find_document_chunks_limit_exceeded(self, mock_qdrant_client: MagicMock) -> None:
         """Test chunk finding with safety limit"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -582,7 +582,7 @@ class TestQdrantServiceDocumentDeletion:
         assert len(result) == MAX_CHUNK_DELETION_LIMIT
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_delete_document_chunks_success(self, mock_qdrant_client):
+    def test_delete_document_chunks_success(self, mock_qdrant_client: MagicMock) -> None:
         """Test successful document chunks deletion"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -608,7 +608,7 @@ class TestQdrantServiceDocumentDeletion:
         )
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_delete_document_chunks_no_chunks(self, mock_qdrant_client):
+    def test_delete_document_chunks_no_chunks(self, mock_qdrant_client: MagicMock) -> None:
         """Test deletion when no chunks exist"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client
@@ -621,7 +621,7 @@ class TestQdrantServiceDocumentDeletion:
         mock_client.delete.assert_not_called()
 
     @patch("src.services.qdrant_service.QdrantClient")
-    def test_delete_document_chunks_failure(self, mock_qdrant_client):
+    def test_delete_document_chunks_failure(self, mock_qdrant_client: MagicMock) -> None:
         """Test deletion failure handling"""
         mock_client = Mock()
         mock_qdrant_client.return_value = mock_client

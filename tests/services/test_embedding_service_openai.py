@@ -19,13 +19,13 @@ from src.utils.providers import EmbeddingServiceInterface
 class TestOpenAIEmbeddingService:
     """Test OpenAI embedding service implementation"""
 
-    def test_service_implements_interface(self):
+    def test_service_implements_interface(self) -> None:
         """Test that OpenAIEmbeddingService implements EmbeddingServiceInterface"""
         with patch("src.services.embedding_service_openai.OpenAI"):
             service = OpenAIEmbeddingService(api_key="test-key")
             assert isinstance(service, EmbeddingServiceInterface)
 
-    def test_service_initialization(self):
+    def test_service_initialization(self) -> None:
         """Test service initialization with different parameters"""
         with patch("src.services.embedding_service_openai.OpenAI") as mock_openai:
             mock_client = Mock()
@@ -53,7 +53,7 @@ class TestOpenAIEmbeddingService:
                 service.embedding_dimension == 3072
             )  # text-embedding-3-large dimension
 
-    def test_model_dimension_mapping(self):
+    def test_model_dimension_mapping(self) -> None:
         """Test that model dimensions are correctly mapped"""
         with patch("openai.OpenAI"):
             # text-embedding-3-small
@@ -74,7 +74,7 @@ class TestOpenAIEmbeddingService:
             )
             assert service.embedding_dimension == 1536
 
-    def test_generate_embedding_success(self):
+    def test_generate_embedding_success(self) -> None:
         """Test successful embedding generation"""
         with patch("src.services.embedding_service_openai.OpenAI") as mock_openai:
             mock_client = Mock()
@@ -94,7 +94,7 @@ class TestOpenAIEmbeddingService:
                 encoding_format="float",
             )
 
-    def test_generate_embedding_with_token_validation(self):
+    def test_generate_embedding_with_token_validation(self) -> None:
         """Test embedding generation with token validation"""
         with patch("src.services.embedding_service_openai.OpenAI") as mock_openai:
             mock_client = Mock()
@@ -117,7 +117,7 @@ class TestOpenAIEmbeddingService:
             ):
                 service.generate_embedding(long_text)
 
-    def test_generate_embeddings_batch(self):
+    def test_generate_embeddings_batch(self) -> None:
         """Test batch embedding generation"""
         with patch("src.services.embedding_service_openai.OpenAI") as mock_openai:
             mock_client = Mock()
@@ -139,7 +139,7 @@ class TestOpenAIEmbeddingService:
                 model="text-embedding-3-small", input=texts, encoding_format="float"
             )
 
-    def test_generate_embeddings_batch_chunking(self):
+    def test_generate_embeddings_batch_chunking(self) -> None:
         """Test batch embedding with automatic chunking for large batches"""
         with patch("src.services.embedding_service_openai.OpenAI") as mock_openai:
             mock_client = Mock()
@@ -165,7 +165,7 @@ class TestOpenAIEmbeddingService:
             assert results == expected
             assert mock_client.embeddings.create.call_count == 2
 
-    def test_health_check_success(self):
+    def test_health_check_success(self) -> None:
         """Test successful health check"""
         with patch("src.services.embedding_service_openai.OpenAI") as mock_openai:
             mock_client = Mock()
@@ -179,7 +179,7 @@ class TestOpenAIEmbeddingService:
             service = OpenAIEmbeddingService(api_key="test-key")
             assert service.health_check() is True
 
-    def test_health_check_failure(self):
+    def test_health_check_failure(self) -> None:
         """Test health check failure"""
         with patch("src.services.embedding_service_openai.OpenAI") as mock_openai:
             mock_client = Mock()
@@ -189,7 +189,7 @@ class TestOpenAIEmbeddingService:
             service = OpenAIEmbeddingService(api_key="test-key")
             assert service.health_check() is False
 
-    def test_get_model_info(self):
+    def test_get_model_info(self) -> None:
         """Test getting model information"""
         with patch("openai.OpenAI"):
             service = OpenAIEmbeddingService(
@@ -206,7 +206,7 @@ class TestOpenAIEmbeddingService:
             }
             assert model_info == expected
 
-    def test_validate_token_count(self):
+    def test_validate_token_count(self) -> None:
         """Test token count validation"""
         with patch("openai.OpenAI"):
             service = OpenAIEmbeddingService(api_key="test-key", max_tokens=100)
@@ -218,7 +218,7 @@ class TestOpenAIEmbeddingService:
             long_text = "word " * 1000
             assert service.validate_token_count(long_text) is False
 
-    def test_authentication_error_handling(self):
+    def test_authentication_error_handling(self) -> None:
         """Test handling of authentication errors"""
         with patch("src.services.embedding_service_openai.OpenAI") as mock_openai:
             mock_client = Mock()
@@ -242,7 +242,7 @@ class TestOpenAIEmbeddingService:
             with pytest.raises(OpenAIAuthenticationError, match="Invalid API key"):
                 service.generate_embedding("test")
 
-    def test_rate_limit_error_handling(self):
+    def test_rate_limit_error_handling(self) -> None:
         """Test handling of rate limit errors"""
         with patch("src.services.embedding_service_openai.OpenAI") as mock_openai:
             mock_client = Mock()
@@ -266,7 +266,7 @@ class TestOpenAIEmbeddingService:
             with pytest.raises(OpenAIRateLimitError, match="Rate limit exceeded"):
                 service.generate_embedding("test")
 
-    def test_generic_openai_error_handling(self):
+    def test_generic_openai_error_handling(self) -> None:
         """Test handling of generic OpenAI errors"""
         with patch("src.services.embedding_service_openai.OpenAI") as mock_openai:
             mock_client = Mock()
@@ -284,7 +284,7 @@ class TestOpenAIEmbeddingService:
             with pytest.raises(OpenAIEmbeddingError, match="Generic API error"):
                 service.generate_embedding("test")
 
-    def test_unexpected_error_handling(self):
+    def test_unexpected_error_handling(self) -> None:
         """Test handling of unexpected errors"""
         with patch("src.services.embedding_service_openai.OpenAI") as mock_openai:
             mock_client = Mock()
@@ -296,7 +296,7 @@ class TestOpenAIEmbeddingService:
             with pytest.raises(OpenAIEmbeddingError, match="Unexpected error"):
                 service.generate_embedding("test")
 
-    def test_empty_response_handling(self):
+    def test_empty_response_handling(self) -> None:
         """Test handling of empty responses"""
         with patch("src.services.embedding_service_openai.OpenAI") as mock_openai:
             mock_client = Mock()
@@ -310,7 +310,7 @@ class TestOpenAIEmbeddingService:
             with pytest.raises(OpenAIEmbeddingError, match="No embedding data"):
                 service.generate_embedding("test")
 
-    def test_mismatched_batch_response(self):
+    def test_mismatched_batch_response(self) -> None:
         """Test handling of mismatched batch responses"""
         with patch("src.services.embedding_service_openai.OpenAI") as mock_openai:
             mock_client = Mock()
@@ -325,7 +325,7 @@ class TestOpenAIEmbeddingService:
             with pytest.raises(OpenAIEmbeddingError, match="Mismatch between input"):
                 service.generate_embeddings_batch(["text1", "text2"])
 
-    def test_custom_base_url(self):
+    def test_custom_base_url(self) -> None:
         """Test service with custom base URL"""
         with patch("src.services.embedding_service_openai.OpenAI") as mock_openai:
             mock_client = Mock()
@@ -339,13 +339,13 @@ class TestOpenAIEmbeddingService:
                 api_key="test-key", base_url="https://custom.openai.com/v1", timeout=30
             )
 
-    def test_batch_size_configuration(self):
+    def test_batch_size_configuration(self) -> None:
         """Test batch size configuration"""
         with patch("openai.OpenAI"):
             service = OpenAIEmbeddingService(api_key="test-key", batch_size=50)
             assert service.batch_size == 50
 
-    def test_timeout_configuration(self):
+    def test_timeout_configuration(self) -> None:
         """Test timeout configuration"""
         with patch("src.services.embedding_service_openai.OpenAI") as mock_openai:
             service = OpenAIEmbeddingService(api_key="test-key", timeout=60)

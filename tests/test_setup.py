@@ -3,11 +3,11 @@
 import pytest
 
 
-def test_imports():
+def test_imports() -> None:
     """Test that all required packages can be imported."""
     # Core dependencies
     import click
-    import frontmatter
+    import frontmatter  # type: ignore[import-untyped]
     import git
     import langchain
 
@@ -24,7 +24,7 @@ def test_imports():
     assert True
 
 
-def test_python_version():
+def test_python_version() -> None:
     """Test Python version compatibility."""
     import sys
 
@@ -32,7 +32,7 @@ def test_python_version():
     assert sys.version_info >= (3, 9)
 
 
-def test_project_structure():
+def test_project_structure() -> None:
     """Test basic project structure exists."""
     import os
 
@@ -46,14 +46,14 @@ def test_project_structure():
     assert os.path.exists("uv.lock")
 
 
-def test_config_module():
+def test_config_module() -> None:
     """Test config module can be imported and used."""
     import os
     import sys
 
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-    from config import Config
+    from src.config import Config
 
     # Test default config creation
     config = Config()
@@ -67,7 +67,7 @@ def test_config_module():
     assert isinstance(config_from_env, Config)
 
 
-def test_logger_setup():
+def test_logger_setup() -> None:
     """Test logger setup works correctly."""
     import os
     import sys

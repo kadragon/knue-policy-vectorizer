@@ -162,12 +162,12 @@ class GitWatcher:
         return sorted(markdown_files)  # Sort for consistent ordering
 
     def get_changed_files(
-        self, old_commit: str, new_commit: str
+        self, old_commit: Optional[str], new_commit: str
     ) -> Tuple[List[str], List[str], List[str], List[Tuple[str, str]]]:
         """Get lists of added, modified, deleted, and renamed markdown files between commits.
 
         Args:
-            old_commit: Previous commit SHA
+            old_commit: Previous commit SHA (None for initial sync)
             new_commit: Current commit SHA
 
         Returns:
@@ -210,7 +210,11 @@ class GitWatcher:
             for item in diff:
                 if item.change_type == "R":  # Renamed
                     old_path, new_path = item.a_path, item.b_path
-                    if is_relevant_md(old_path) or is_relevant_md(new_path):
+                    if (
+                        old_path is not None
+                        and new_path is not None
+                        and (is_relevant_md(old_path) or is_relevant_md(new_path))
+                    ):
                         renamed_files.append((old_path, new_path))
                         self.logger.debug(
                             "Detected rename", old_path=old_path, new_path=new_path
@@ -219,6 +223,9 @@ class GitWatcher:
 
                 file_path = item.a_path or item.b_path
                 if not is_relevant_md(file_path):
+                    continue
+
+                if file_path is None:
                     continue
 
                 if item.change_type == "A":  # Added

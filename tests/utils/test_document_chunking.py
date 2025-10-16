@@ -7,13 +7,13 @@ from typing import Any, Dict, List
 import pytest
 
 # Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
 class TestDocumentChunking:
     """Test document chunking with intelligent nesting strategy."""
 
-    def test_chunking_basic_functionality(self):
+    def test_chunking_basic_functionality(self) -> None:
         """Test basic chunking splits long documents."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -47,7 +47,7 @@ class TestDocumentChunking:
             assert "char_count" in chunk
             # Note: Total tokens may exceed limit due to overlap, but that's expected
 
-    def test_chunking_preserves_section_boundaries(self):
+    def test_chunking_preserves_section_boundaries(self) -> None:
         """Test that chunking respects markdown section boundaries."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -99,7 +99,7 @@ class TestDocumentChunking:
                 ]
                 assert len(header_lines) >= 1
 
-    def test_chunking_with_overlap_strategy(self):
+    def test_chunking_with_overlap_strategy(self) -> None:
         """Test chunking with 800/200 nesting overlap strategy."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -137,7 +137,7 @@ class TestDocumentChunking:
         # Note: Due to overlap strategy, total token count may exceed limit
         # but the main content should be within reasonable bounds
 
-    def test_chunking_maintains_context_integrity(self):
+    def test_chunking_maintains_context_integrity(self) -> None:
         """Test that chunking maintains meaningful context boundaries."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -188,7 +188,7 @@ class TestDocumentChunking:
                 assert "- 직원" in content_text
                 assert "- 학생" in content_text
 
-    def test_chunking_handles_very_short_content(self):
+    def test_chunking_handles_very_short_content(self) -> None:
         """Test that chunking handles content that doesn't need splitting."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -210,7 +210,7 @@ class TestDocumentChunking:
         # For single chunks (no overlap), tokens should be within the max_tokens limit
         assert chunk["tokens"] <= 800
 
-    def test_chunking_handles_empty_content(self):
+    def test_chunking_handles_empty_content(self) -> None:
         """Test chunking behavior with empty or whitespace-only content."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -228,7 +228,7 @@ class TestDocumentChunking:
         # Should either create no chunks or one chunk, but not fail
         assert len(whitespace_chunks) <= 1
 
-    def test_chunking_sequential_indexing(self):
+    def test_chunking_sequential_indexing(self) -> None:
         """Test that chunks are indexed sequentially."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -262,7 +262,7 @@ class TestDocumentChunking:
         for i, chunk in enumerate(chunks):
             assert chunk["chunk_index"] == i
 
-    def test_chunking_section_title_extraction(self):
+    def test_chunking_section_title_extraction(self) -> None:
         """Test that section titles are properly extracted for each chunk."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -312,7 +312,7 @@ class TestDocumentChunking:
                         for header in headers_in_chunk
                     )
 
-    def test_chunking_token_count_accuracy(self):
+    def test_chunking_token_count_accuracy(self) -> None:
         """Test that token counting in chunks is reasonably accurate."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -350,7 +350,7 @@ This is a mixed language document for testing token estimation.
 
             # Note: Due to overlap, chunks may exceed the base token limit
 
-    def test_chunking_character_count_tracking(self):
+    def test_chunking_character_count_tracking(self) -> None:
         """Test that character counts are properly tracked in chunks."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -380,7 +380,7 @@ This is a mixed language document for testing token estimation.
 class TestChunkingIntegration:
     """Integration tests for chunking with MarkdownProcessor pipeline."""
 
-    def test_process_markdown_with_chunking_needed(self):
+    def test_process_markdown_with_chunking_needed(self) -> None:
         """Test complete pipeline when chunking is needed."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -423,7 +423,7 @@ category: policy
         assert result["is_valid"] == True
         assert result["validation_error"] is None
 
-    def test_process_markdown_no_chunking_needed(self):
+    def test_process_markdown_no_chunking_needed(self) -> None:
         """Test complete pipeline when chunking is not needed."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -454,7 +454,7 @@ category: policy
 class TestChunkingPerformance:
     """Performance tests for chunking functionality."""
 
-    def test_chunking_performance_reasonable(self):
+    def test_chunking_performance_reasonable(self) -> None:
         """Test that chunking performance is reasonable for large documents."""
         import time
 
