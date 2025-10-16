@@ -181,7 +181,7 @@ class QdrantCloudService(VectorServiceInterface):
                     "Authentication failed: Invalid API key"
                 )
             elif e.status_code == 400:
-                raise QdrantCloudError(f"Bad request: {e.content}")
+                raise QdrantCloudError(f"Bad request: {e.content.decode('utf-8', errors='ignore')}")
             else:
                 raise QdrantCloudError(f"Qdrant Cloud operation failed: {e}")
         except ResponseHandlingException as e:
@@ -492,7 +492,7 @@ class QdrantCloudService(VectorServiceInterface):
                 )
                 if not points:
                     break
-                point_ids.extend([p.id for p in points])
+                point_ids.extend([str(p.id) for p in points])
                 if offset is None:
                     break
 
@@ -640,7 +640,7 @@ class QdrantCloudService(VectorServiceInterface):
 
             return {
                 "name": collection_name,
-                "vector_size": collection_info.config.params.vectors.size,
+                "vector_size": collection_info.config.params.vectors.size,  # type: ignore[union-attr]
                 "points_count": collection_info.points_count,
                 "status": collection_info.status,
             }

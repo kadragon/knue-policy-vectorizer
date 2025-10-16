@@ -171,7 +171,7 @@ class ProviderFactory:
             required_fields = ["api_key", "model"]
             return all(field in config for field in required_fields)
         else:
-            return False
+            return False  # type: ignore[unreachable]
 
     def validate_vector_config(
         self, provider: VectorProvider, config: Dict[str, Any]
@@ -180,7 +180,7 @@ class ProviderFactory:
         if provider == VectorProvider.QDRANT_CLOUD:
             required_fields = ["url", "api_key"]
             return all(field in config for field in required_fields)
-        return False
+        return False  # type: ignore[unreachable]
 
     def _create_openai_embedding_service(
         self, config: Dict[str, Any]

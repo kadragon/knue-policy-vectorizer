@@ -71,7 +71,7 @@ class KnueBoardIngestor:
         # Prefer server-declared encoding; fall back to apparent encoding when missing/latin-1
         if not resp.encoding or resp.encoding.lower() in {"iso-8859-1", "latin-1"}:
             try:
-                apparent = resp.apparent_encoding  # type: ignore[attr-defined]
+                apparent = resp.apparent_encoding
             except Exception:
                 apparent = None
             if apparent:
@@ -206,12 +206,12 @@ class KnueBoardIngestor:
         # Parse HTML and ignore script/style content via the parser
 
         class _Extractor(HTMLParser):
-            def __init__(self):
+            def __init__(self) -> None:
                 super().__init__(convert_charrefs=True)
                 self.parts: List[str] = []
                 self._skip_depth: int = 0  # inside <script>/<style>
 
-            def handle_starttag(self, tag, attrs):
+            def handle_starttag(self, tag, attrs) -> None:
                 t = tag.lower()
                 if t in {"script", "style"}:
                     # Enter skip mode for script/style content
@@ -240,7 +240,7 @@ class KnueBoardIngestor:
                 elif t == "li":
                     self.parts.append("\n- ")
 
-            def handle_endtag(self, tag):
+            def handle_endtag(self, tag) -> None:
                 t = tag.lower()
                 if t in {"script", "style"}:
                     if self._skip_depth > 0:
