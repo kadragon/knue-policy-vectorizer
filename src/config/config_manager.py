@@ -5,9 +5,7 @@ Advanced configuration management for KNUE Policy Vectorizer.
 This module provides:
 - Configuration validation and schema checking
 - Configuration templates for common provider setups
-- Configuration backup and versioning
 - Configuration import/export functionality
-- Environment-specific configuration profiles
 - Configuration security and credential management
 """
 
@@ -98,44 +96,6 @@ class ConfigTemplate:
         )
 
 
-@dataclass
-class ConfigProfile:
-    """Environment-specific configuration profile"""
-
-    name: str
-    environment: str  # dev, staging, prod
-    description: str
-    config: Config
-    created_at: datetime
-    last_modified: datetime
-    version: str = "1.0.0"
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Export profile as dictionary"""
-        return {
-            "name": self.name,
-            "environment": self.environment,
-            "description": self.description,
-            "config": self.config.to_dict(),
-            "created_at": self.created_at.isoformat(),
-            "last_modified": self.last_modified.isoformat(),
-            "version": self.version,
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ConfigProfile":
-        """Create profile from dictionary"""
-        return cls(
-            name=data["name"],
-            environment=data["environment"],
-            description=data["description"],
-            config=Config.from_dict(data["config"]),
-            created_at=datetime.fromisoformat(data["created_at"]),
-            last_modified=datetime.fromisoformat(data["last_modified"]),
-            version=data.get("version", "1.0.0"),
-        )
-
-
 class ConfigurationManager:
     """Advanced configuration management system"""
 
@@ -143,16 +103,12 @@ class ConfigurationManager:
         """Initialize configuration manager"""
         self.config_dir = Path(config_dir)
         self.templates_dir = self.config_dir / "templates"
-        self.profiles_dir = self.config_dir / "profiles"
-        self.backups_dir = self.config_dir / "backups"
         self.secrets_dir = self.config_dir / "secrets"
 
         # Create directories
         for directory in [
             self.config_dir,
             self.templates_dir,
-            self.profiles_dir,
-            self.backups_dir,
             self.secrets_dir,
         ]:
             directory.mkdir(parents=True, exist_ok=True)
@@ -424,124 +380,6 @@ class ConfigurationManager:
 
         return final_config
 
-    def save_profile(self, profile: ConfigProfile) -> bool:
-        """Save configuration profile"""
-        try:
-            profile_file = self.profiles_dir / f"{profile.name}.json"
-            with open(profile_file, "w") as f:
-                json.dump(profile.to_dict(), f, indent=2)
-
-            self.logger.info("Profile saved", name=profile.name, file=str(profile_file))
-            return True
-
-        except Exception as e:
-            self.logger.error("Failed to save profile", name=profile.name, error=str(e))
-            return False
-
-    def load_profile(self, name: str) -> Optional[ConfigProfile]:
-        """Load configuration profile"""
-        try:
-            profile_file = self.profiles_dir / f"{name}.json"
-            if not profile_file.exists():
-                return None
-
-            with open(profile_file, "r") as f:
-                data = json.load(f)
-
-            return ConfigProfile.from_dict(data)
-
-        except Exception as e:
-            self.logger.error("Failed to load profile", name=name, error=str(e))
-            return None
-
-    def list_profiles(self, environment: Optional[str] = None) -> List[ConfigProfile]:
-        """List available configuration profiles"""
-        profiles = []
-
-        for profile_file in self.profiles_dir.glob("*.json"):
-            try:
-                profile = self.load_profile(profile_file.stem)
-                if profile and (
-                    environment is None or profile.environment == environment
-                ):
-                    profiles.append(profile)
-            except Exception as e:
-                self.logger.warning(
-                    "Failed to load profile", file=str(profile_file), error=str(e)
-                )
-
-        return sorted(profiles, key=lambda p: p.name)
-
-    def create_backup(self, config: Config, description: str = "") -> str:
-        """Create configuration backup"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_file = self.backups_dir / f"config_backup_{timestamp}.json"
-
-        backup_data = {
-            "timestamp": datetime.now().isoformat(),
-            "description": description,
-            "config": config.to_dict(),
-            "config_hash": self._calculate_config_hash(config),
-        }
-
-        with open(backup_file, "w") as f:
-            json.dump(backup_data, f, indent=2)
-
-        self.logger.info("Configuration backup created", file=str(backup_file))
-        return str(backup_file)
-
-    def restore_backup(self, backup_file: str) -> Optional[Config]:
-        """Restore configuration from backup"""
-        try:
-            with open(backup_file, "r") as f:
-                backup_data = json.load(f)
-
-            config = Config.from_dict(backup_data["config"])
-
-            # Verify integrity
-            expected_hash = backup_data.get("config_hash")
-            if expected_hash:
-                actual_hash = self._calculate_config_hash(config)
-                if actual_hash != expected_hash:
-                    self.logger.warning(
-                        "Backup integrity check failed", file=backup_file
-                    )
-
-            self.logger.info("Configuration restored from backup", file=backup_file)
-            return config
-
-        except Exception as e:
-            self.logger.error(
-                "Failed to restore backup", file=backup_file, error=str(e)
-            )
-            return None
-
-    def list_backups(self) -> List[Dict[str, Any]]:
-        """List available configuration backups"""
-        backups = []
-
-        for backup_file in self.backups_dir.glob("config_backup_*.json"):
-            try:
-                with open(backup_file, "r") as f:
-                    backup_data = json.load(f)
-
-                backups.append(
-                    {
-                        "file": str(backup_file),
-                        "timestamp": backup_data["timestamp"],
-                        "description": backup_data.get("description", ""),
-                        "size": backup_file.stat().st_size,
-                    }
-                )
-            except Exception as e:
-                self.logger.warning(
-                    "Failed to read backup metadata",
-                    file=str(backup_file),
-                    error=str(e),
-                )
-
-        return sorted(backups, key=lambda b: b["timestamp"], reverse=True)
-
     def encrypt_sensitive_config(self, config: Config) -> Dict[str, str]:
         """Encrypt sensitive configuration values"""
         sensitive_fields = ["openai_api_key", "qdrant_api_key"]
@@ -660,24 +498,3 @@ class ConfigurationManager:
 
         else:
             raise ValueError(f"Unsupported export format: {format}")
-
-    def _calculate_config_hash(self, config: Config) -> str:
-        """Calculate hash of configuration for integrity checking"""
-        config_str = json.dumps(config.to_dict(), sort_keys=True)
-        return CryptoUtils.calculate_data_integrity_hash(config_str)
-
-    def cleanup_old_backups(self, keep_days: int = 30) -> int:
-        """Clean up old backup files"""
-        cutoff_time = datetime.now().timestamp() - (keep_days * 24 * 60 * 60)
-
-        removed_count = 0
-        for backup_file in self.backups_dir.glob("config_backup_*.json"):
-            if backup_file.stat().st_mtime < cutoff_time:
-                backup_file.unlink()
-                removed_count += 1
-
-        self.logger.info(
-            "Cleaned up old backups", removed=removed_count, keep_days=keep_days
-        )
-
-        return removed_count

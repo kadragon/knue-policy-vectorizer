@@ -15,7 +15,6 @@ import structlog
 try:
     from src.config.config import Config
     from src.config.config_manager import (
-        ConfigProfile,
         ConfigTemplate,
         ConfigurationManager,
     )
@@ -49,7 +48,6 @@ except ImportError:  # pragma: no cover - fallback when executed as script
 
     from src.config.config import Config
     from src.config.config_manager import (
-        ConfigProfile,
         ConfigTemplate,
         ConfigurationManager,
     )
@@ -1429,63 +1427,6 @@ def validate_config_file(
             click.echo(f"  Qdrant API Key: {api_key_masked}")
 
 
-@main.command(name="config-backup")
-@click.option("--description", "-d", default="", help="Backup description")
-@click.option("--config-file", help="Configuration file to backup")
-def backup_config(description: str, config_file: Optional[str] = None) -> None:
-    """Create configuration backup."""
-    click.echo("💾 Creating Configuration Backup\n")
-
-    if config_file:
-        # Load from file
-        try:
-            with open(config_file, "r") as f:
-                config_dict = json.load(f)
-            config = Config.from_dict(config_dict)
-        except Exception as e:
-            click.echo(f"❌ Failed to load configuration file: {e}")
-            return
-    else:
-        # Use current environment
-        try:
-            config = Config.from_env()
-        except Exception as e:
-            click.echo(f"❌ Failed to load configuration from environment: {e}")
-            return
-
-    config_manager = ConfigurationManager()
-    backup_file = config_manager.create_backup(config, description)
-
-    click.echo(f"✅ Configuration backup created:")
-    click.echo(f"  File: {backup_file}")
-    click.echo(f"  Description: {description or 'No description'}")
-    click.echo(f"  Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-
-@main.command(name="config-backups")
-def list_config_backups() -> None:
-    """List configuration backups."""
-    click.echo("📋 Configuration Backups\n")
-
-    config_manager = ConfigurationManager()
-    backups = config_manager.list_backups()
-
-    if not backups:
-        click.echo("No backups found")
-        return
-
-    for i, backup in enumerate(backups, 1):
-        timestamp = datetime.fromisoformat(backup["timestamp"])
-        size_mb = backup["size"] / 1024 / 1024
-
-        click.echo(f"{i}. {Path(backup['file']).name}")
-        click.echo(f"   Date: {timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
-        click.echo(f"   Size: {size_mb:.2f} MB")
-        if backup["description"]:
-            click.echo(f"   Description: {backup['description']}")
-        click.echo()
-
-
 @main.command(name="load-config")
 @click.option("--config-file", required=True, help=".env file to load")
 def load_config_file(config_file: str) -> None:
@@ -1551,42 +1492,6 @@ def import_config(config_file: str) -> None:
         click.echo("✅ Configuration imported successfully")
     except Exception as e:
         click.echo(f"❌ Failed to import configuration: {e}")
-
-
-@main.command(name="config-cleanup")
-@click.option("--keep-days", default=30, help="Keep backups newer than N days")
-@click.option("--dry-run", is_flag=True, help="Show what would be deleted")
-def cleanup_config_backups(keep_days: int, dry_run: bool) -> None:
-    """Clean up old configuration backups."""
-    click.echo(f"🧹 Configuration Backup Cleanup\n")
-
-    config_manager = ConfigurationManager()
-
-    if dry_run:
-        click.echo(f"🔍 Dry run - showing backups older than {keep_days} days:")
-        # List backups that would be deleted
-        cutoff_time = datetime.now().timestamp() - (keep_days * 24 * 60 * 60)
-
-        old_backups = []
-        for backup_file in config_manager.backups_dir.glob("config_backup_*.json"):
-            if backup_file.stat().st_mtime < cutoff_time:
-                old_backups.append(backup_file)
-
-        if old_backups:
-            for backup_file in old_backups:
-                mtime = datetime.fromtimestamp(backup_file.stat().st_mtime)
-                click.echo(
-                    f"  • {backup_file.name} ({mtime.strftime('%Y-%m-%d %H:%M:%S')})"
-                )
-            click.echo(f"\nTotal: {len(old_backups)} backups would be deleted")
-        else:
-            click.echo("No old backups found")
-    else:
-        if click.confirm(f"Delete backups older than {keep_days} days?"):
-            removed_count = config_manager.cleanup_old_backups(keep_days)
-            click.echo(f"✅ Cleaned up {removed_count} old backups")
-        else:
-            click.echo("❌ Cleanup cancelled")
 
 
 @main.command()

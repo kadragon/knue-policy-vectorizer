@@ -105,16 +105,14 @@ uv run python -m src.sync_pipeline migrate   --from-embedding openai --from-vect
 - `test-providers`: OpenAI 및 Qdrant Cloud 연결을 각각 헬스 체크합니다.
 - `migrate`: Qdrant Cloud 클러스터 간 스냅샷 전송, 백업/복원 및 성능 비교를 수행합니다.
 
-## 📦 구성 템플릿 & 백업
+## 📦 구성 템플릿
 
 - 기본 템플릿: `config/templates/openai-cloud.json`
-- 템플릿 생성/목록/내보내기:
+- 고성능 템플릿: `config/templates/production-high-performance.json`
+- 템플릿 목록:
   ```bash
   uv run python -m src.config_manager list-templates
-  uv run python -m src.config_manager export-template --name openai-cloud --format json
   ```
-- 백업: `uv run python -m src.config_manager backup --name production`
-- 복원: `uv run python -m src.config_manager restore --backup <path>`
 
 ## ☁️ GitHub Actions
 
