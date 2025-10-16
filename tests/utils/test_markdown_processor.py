@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 class TestMarkdownProcessor:
     """Test Markdown preprocessing functionality."""
 
-    def test_markdown_processor_initialization(self):
+    def test_markdown_processor_initialization(self) -> None:
         """Test MarkdownProcessor can be initialized."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -24,7 +24,7 @@ class TestMarkdownProcessor:
         assert hasattr(processor, "max_chars")
         assert hasattr(processor, "max_tokens")
 
-    def test_remove_frontmatter_yaml(self):
+    def test_remove_frontmatter_yaml(self) -> None:
         """Test removing YAML frontmatter from markdown content."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -57,7 +57,7 @@ tags: [education, regulation]
         result = processor.remove_frontmatter(markdown_no_frontmatter)
         assert result == markdown_no_frontmatter
 
-    def test_remove_frontmatter_toml(self):
+    def test_remove_frontmatter_toml(self) -> None:
         """Test removing TOML frontmatter from markdown content."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -80,7 +80,7 @@ TOML frontmatter 테스트"""
         result = processor.remove_frontmatter(markdown_with_toml)
         assert result == expected_content
 
-    def test_remove_frontmatter_returns_metadata(self):
+    def test_remove_frontmatter_returns_metadata(self) -> None:
         """Frontmatter removal should optionally return parsed metadata."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -97,13 +97,15 @@ tags:
 
 내용"""
 
-        content, metadata = processor.remove_frontmatter(markdown, return_metadata=True)
+        result = processor.remove_frontmatter(markdown, return_metadata=True)
+        assert isinstance(result, tuple), "Expected tuple when return_metadata=True"
+        content, metadata = result
 
         assert content.startswith("# 헤더")
         assert metadata["title"] == "Test Policy"
         assert metadata["tags"] == ["regulation", "university"]
 
-    def test_extract_title_from_h1(self):
+    def test_extract_title_from_h1(self) -> None:
         """Test extracting title from H1 heading."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -137,7 +139,7 @@ tags:
         title = processor.extract_title(content_multiple)
         assert title == "첫 번째 제목"
 
-    def test_extract_title_from_filename(self):
+    def test_extract_title_from_filename(self) -> None:
         """Test extracting title from filename when no H1 exists."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -154,7 +156,7 @@ tags:
         title = processor.extract_title(content, filename)
         assert title == "한국교원대학교 설치령"  # Should use filename without extension
 
-    def test_extract_title_edge_cases(self):
+    def test_extract_title_edge_cases(self) -> None:
         """Test title extraction edge cases."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -175,7 +177,7 @@ Some content"""
         title = processor.extract_title(content, "empty-h1.md")
         assert title == "empty-h1"
 
-    def test_clean_content_basic(self):
+    def test_clean_content_basic(self) -> None:
         """Test basic content cleaning."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -206,7 +208,7 @@ Some content"""
         result = processor.clean_content(messy_content)
         assert result == expected_clean
 
-    def test_clean_content_preserve_structure(self):
+    def test_clean_content_preserve_structure(self) -> None:
         """Test that content cleaning preserves markdown structure."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -236,7 +238,7 @@ code block
         assert "```python" in result
         assert "**굵은 글씨**" in result
 
-    def test_process_markdown_full_pipeline(self):
+    def test_process_markdown_full_pipeline(self) -> None:
         """Test the complete markdown processing pipeline."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -287,7 +289,7 @@ category: education
         assert result["frontmatter"]["title"] == "한국교원대학교 학칙"
         assert result["frontmatter"]["category"] == "education"
 
-    def test_generate_metadata(self):
+    def test_generate_metadata(self) -> None:
         """Test metadata generation for processed documents."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -337,7 +339,7 @@ category: education
         assert metadata["content_length"] == len(content)
         assert metadata["estimated_tokens"] > 0
 
-    def test_calculate_document_id(self):
+    def test_calculate_document_id(self) -> None:
         """Test document ID calculation for consistent identification."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -360,7 +362,7 @@ category: education
         different_id = processor.calculate_document_id(different_path)
         assert doc_id != different_id
 
-    def test_estimate_token_count(self):
+    def test_estimate_token_count(self) -> None:
         """Test token count estimation for length validation."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -378,7 +380,7 @@ category: education
         long_token_count = processor.estimate_token_count(long_content)
         assert long_token_count > token_count  # Should be larger
 
-    def test_validate_content_length(self):
+    def test_validate_content_length(self) -> None:
         """Test content length validation against limits."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -394,13 +396,14 @@ category: education
         very_long_content = "# 긴 문서\n\n" + "매우 긴 내용입니다. " * 10000
         is_valid, message = processor.validate_content_length(very_long_content)
         assert is_valid == False
+        assert message is not None
         assert "too long" in message.lower() or "길이" in message
 
 
 class TestMarkdownProcessorIntegration:
     """Integration tests for MarkdownProcessor with real data."""
 
-    def test_process_real_knue_document(self):
+    def test_process_real_knue_document(self) -> None:
         """Test processing actual KNUE policy document format."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -440,15 +443,15 @@ class TestMarkdownProcessorIntegration:
 
 
 # Tests for setup verification
-def test_frontmatter_library_available():
+def test_frontmatter_library_available() -> None:
     """Test that python-frontmatter library is available."""
-    import frontmatter
+    import frontmatter  # type: ignore[import-untyped]
 
     assert hasattr(frontmatter, "load")
     assert hasattr(frontmatter, "loads")
 
 
-def test_crypto_utils_available():
+def test_crypto_utils_available() -> None:
     """Test that CryptoUtils works correctly for document ID generation."""
     from src.utils.crypto_utils import CryptoUtils
 
@@ -456,7 +459,7 @@ def test_crypto_utils_available():
     assert len(test_hash) == 64  # SHA-256 hash length
 
 
-def test_datetime_handling():
+def test_datetime_handling() -> None:
     """Test datetime handling for metadata."""
     import time
     from datetime import datetime
@@ -475,7 +478,7 @@ def test_datetime_handling():
 class TestDocumentChunkingIntegration:
     """Test chunking integration with MarkdownProcessor."""
 
-    def test_create_document_for_vectorization_single_document(self):
+    def test_create_document_for_vectorization_single_document(self) -> None:
         """Test document creation for non-chunked content."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -512,7 +515,7 @@ class TestDocumentChunkingIntegration:
         assert document["metadata"]["total_chunks"] == 1
         assert document["processing_info"]["is_chunk"] == False
 
-    def test_create_document_for_vectorization_chunked_documents(self):
+    def test_create_document_for_vectorization_chunked_documents(self) -> None:
         """Test document creation for chunked content."""
         from src.utils.markdown_processor import MarkdownProcessor
 
@@ -589,7 +592,7 @@ class TestDocumentChunkingIntegration:
         assert "chunk_0" in doc1["metadata"]["document_id"]
         assert "chunk_1" in doc2["metadata"]["document_id"]
 
-    def test_chunk_markdown_content_overlap_strategy(self):
+    def test_chunk_markdown_content_overlap_strategy(self) -> None:
         """Test the 800/200 overlap strategy in chunking."""
         from src.utils.markdown_processor import MarkdownProcessor
 

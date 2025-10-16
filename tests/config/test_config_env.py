@@ -9,8 +9,8 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
-def test_config_from_env_supports_legacy_and_canonical_keys(monkeypatch):
-    from config import Config
+def test_config_from_env_supports_legacy_and_canonical_keys(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.config import Config
 
     # Clear potentially conflicting vars first
     keys_to_clear = [
@@ -93,8 +93,8 @@ def test_config_from_env_supports_legacy_and_canonical_keys(monkeypatch):
     assert cfg2.max_tokens == 2048
 
 
-def test_canonical_overrides_legacy_when_both_set(monkeypatch):
-    from config import Config
+def test_canonical_overrides_legacy_when_both_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.config import Config
 
     # Clear
     for k in [
@@ -139,8 +139,8 @@ def test_canonical_overrides_legacy_when_both_set(monkeypatch):
     assert cfg.max_tokens == 9999
 
 
-def test_invalid_integer_env_values_raise(monkeypatch):
-    from config import Config
+def test_invalid_integer_env_values_raise(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.config import Config
 
     # Ensure a clean env
     monkeypatch.delenv("VECTOR_SIZE", raising=False)
@@ -151,8 +151,8 @@ def test_invalid_integer_env_values_raise(monkeypatch):
         _ = Config.from_env()
 
 
-def test_r2_configuration_loaded_and_validated(monkeypatch):
-    from config import Config
+def test_r2_configuration_loaded_and_validated(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.config import Config
 
     # Clear any existing R2 envs and provider envs
     for key in [

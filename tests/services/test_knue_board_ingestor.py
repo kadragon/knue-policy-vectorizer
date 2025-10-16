@@ -4,7 +4,7 @@ from src.services.knue_board_ingestor import KnueBoardIngestor
 
 
 @pytest.mark.unit
-def test_parse_rss_basic_with_description_html_stripped():
+def test_parse_rss_basic_with_description_html_stripped() -> None:
     xml = """
     <rss version="2.0">
       <channel>
@@ -43,7 +43,7 @@ def test_parse_rss_basic_with_description_html_stripped():
 
 
 @pytest.mark.unit
-def test_parse_rss_handles_atom_like_variants():
+def test_parse_rss_handles_atom_like_variants() -> None:
     xml = """
     <feed xmlns="http://www.w3.org/2005/Atom">
       <title>Example Atom</title>

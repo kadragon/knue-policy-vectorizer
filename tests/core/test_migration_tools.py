@@ -6,6 +6,7 @@ import json
 import tempfile
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -23,7 +24,7 @@ from src.utils.providers import EmbeddingProvider, VectorProvider
 class TestMigrationReport:
     """Test MigrationReport functionality"""
 
-    def test_migration_report_creation(self):
+    def test_migration_report_creation(self) -> None:
         """Test creating migration report"""
         start_time = datetime.now()
         report = MigrationReport(
@@ -42,7 +43,7 @@ class TestMigrationReport:
         assert report.failed_documents == 5
         assert report.success_rate == 95.0
 
-    def test_migration_report_to_dict(self):
+    def test_migration_report_to_dict(self) -> None:
         """Test exporting migration report as dictionary"""
         start_time = datetime.now()
         end_time = datetime.now()
@@ -74,7 +75,7 @@ class TestMigrationReport:
 class TestCompatibilityCheck:
     """Test CompatibilityCheck functionality"""
 
-    def test_compatibility_check_creation(self):
+    def test_compatibility_check_creation(self) -> None:
         """Test creating compatibility check"""
         check = CompatibilityCheck(
             embedding_compatible=True,
@@ -93,7 +94,7 @@ class TestCompatibilityCheck:
         assert check.fully_compatible is True
         assert check.warnings == ["Test warning"]
 
-    def test_compatibility_check_not_fully_compatible(self):
+    def test_compatibility_check_not_fully_compatible(self) -> None:
         """Test compatibility check when not fully compatible"""
         check = CompatibilityCheck(
             embedding_compatible=True,
@@ -109,7 +110,7 @@ class TestCompatibilityCheck:
 class TestMigrationManager:
     """Test MigrationManager functionality"""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Setup test environment"""
         # Create test configurations
         self.source_config = Config(
@@ -134,7 +135,7 @@ class TestMigrationManager:
             vector_size=1536,
         )
 
-    def test_migration_manager_initialization(self):
+    def test_migration_manager_initialization(self) -> None:
         """Test migration manager initialization"""
         with patch("src.core.migration_tools.ProviderFactory"):
             manager = MigrationManager(self.source_config, self.target_config)
@@ -143,7 +144,7 @@ class TestMigrationManager:
             assert manager.target_config == self.target_config
 
     @patch("src.core.migration_tools.ProviderFactory")
-    def test_check_compatibility_success(self, mock_factory):
+    def test_check_compatibility_success(self, mock_factory: Any) -> None:
         """Test compatibility check with matching dimensions"""
         # Setup mocks
         mock_factory_instance = Mock()
@@ -181,7 +182,7 @@ class TestMigrationManager:
         assert compatibility.target_dimensions == 1536
 
     @patch("src.core.migration_tools.ProviderFactory")
-    def test_check_compatibility_dimension_mismatch(self, mock_factory):
+    def test_check_compatibility_dimension_mismatch(self, mock_factory: Any) -> None:
         """Test compatibility check with dimension mismatch"""
         # Setup mocks
         mock_factory_instance = Mock()
@@ -220,6 +221,7 @@ class TestMigrationManager:
         assert compatibility.dimension_match is False
         assert compatibility.source_dimensions == 1536
         assert compatibility.target_dimensions == 2048
+        assert compatibility.warnings is not None
         assert len(compatibility.warnings) > 0
 
         # Restore target vector size for other tests
@@ -227,7 +229,7 @@ class TestMigrationManager:
         assert "Dimension mismatch" in compatibility.warnings[0]
 
     @patch("src.core.migration_tools.ProviderFactory")
-    def test_create_backup_success(self, mock_factory):
+    def test_create_backup_success(self, mock_factory: Any) -> None:
         """Test successful backup creation"""
         # Setup mocks
         mock_factory_instance = Mock()
@@ -270,7 +272,7 @@ class TestMigrationManager:
             assert backup_data["collection_name"] == "test_collection"
 
     @patch("src.core.migration_tools.ProviderFactory")
-    def test_restore_from_backup_success(self, mock_factory):
+    def test_restore_from_backup_success(self, mock_factory: Any) -> None:
         """Test successful restore from backup"""
         # Setup mocks
         mock_factory_instance = Mock()
@@ -330,7 +332,7 @@ class TestMigrationManager:
             Path(backup_path).unlink()
 
     @patch("src.core.migration_tools.ProviderFactory")
-    def test_compare_performance(self, mock_factory):
+    def test_compare_performance(self, mock_factory: Any) -> None:
         """Test performance comparison between providers"""
         # Setup mocks
         mock_factory_instance = Mock()
@@ -391,7 +393,7 @@ class TestMigrationManager:
 class TestCreateMigrationConfig:
     """Test migration configuration creation"""
 
-    def test_create_migration_config_basic(self):
+    def test_create_migration_config_basic(self) -> None:
         """Test creating basic migration configuration"""
         with patch("src.core.migration_tools.Config") as mock_config_class:
             mock_base_config = Mock()
@@ -420,7 +422,7 @@ class TestCreateMigrationConfig:
             assert target_dict["embedding_provider"] == EmbeddingProvider.OPENAI
             assert target_dict["vector_provider"] == VectorProvider.QDRANT_CLOUD
 
-    def test_create_migration_config_with_overrides(self):
+    def test_create_migration_config_with_overrides(self) -> None:
         """Test creating migration configuration with overrides"""
         with patch("src.core.migration_tools.Config") as mock_config_class:
             mock_base_config = Mock()
@@ -457,7 +459,7 @@ class TestMigrationIntegration:
     """Test migration tools integration scenarios"""
 
     @patch("src.core.migration_tools.ProviderFactory")
-    def test_full_migration_workflow(self, mock_factory):
+    def test_full_migration_workflow(self, mock_factory: Any) -> None:
         """Test complete migration workflow"""
         # Setup comprehensive mocks
         mock_factory_instance = Mock()

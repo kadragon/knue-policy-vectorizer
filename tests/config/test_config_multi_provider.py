@@ -19,7 +19,7 @@ from src.utils.providers import (
 class TestMultiProviderConfig:
     """Test multi-provider configuration functionality"""
 
-    def test_default_provider_configuration(self):
+    def test_default_provider_configuration(self) -> None:
         """Test default provider configuration (backward compatibility)"""
         config = Config()
 
@@ -27,7 +27,7 @@ class TestMultiProviderConfig:
         assert config.embedding_provider == EmbeddingProvider.OPENAI
         assert config.vector_provider == VectorProvider.QDRANT_CLOUD
 
-    def test_provider_configuration_from_env(self):
+    def test_provider_configuration_from_env(self) -> None:
         """Test provider configuration from environment variables"""
         with patch.dict(
             os.environ,
@@ -38,7 +38,7 @@ class TestMultiProviderConfig:
             assert config.embedding_provider == EmbeddingProvider.OPENAI
             assert config.vector_provider == VectorProvider.QDRANT_CLOUD
 
-    def test_provider_configuration_validation(self):
+    def test_provider_configuration_validation(self) -> None:
         """Test provider configuration validation"""
         with patch.dict(
             os.environ,
@@ -50,7 +50,7 @@ class TestMultiProviderConfig:
             with pytest.raises(ValueError, match="Invalid embedding provider"):
                 Config.from_env()
 
-    def test_openai_configuration_from_env(self):
+    def test_openai_configuration_from_env(self) -> None:
         """Test OpenAI-specific configuration from environment variables"""
         with patch.dict(
             os.environ,
@@ -70,7 +70,7 @@ class TestMultiProviderConfig:
             assert config.openai_model == "text-embedding-3-large"
             assert config.openai_base_url == "https://custom.openai.com/v1"
 
-    def test_qdrant_cloud_configuration_from_env(self):
+    def test_qdrant_cloud_configuration_from_env(self) -> None:
         """Test Qdrant Cloud-specific configuration from environment variables"""
         with patch.dict(
             os.environ,
@@ -89,7 +89,7 @@ class TestMultiProviderConfig:
             assert config.qdrant_api_key == "test-api-key"
             assert config.qdrant_cluster_region == "us-east-1"
 
-    def test_provider_config_creation(self):
+    def test_provider_config_creation(self) -> None:
         """Test creating ProviderConfig from Config"""
         config = Config(
             embedding_provider=EmbeddingProvider.OPENAI,
@@ -100,7 +100,7 @@ class TestMultiProviderConfig:
         assert provider_config.embedding_provider == EmbeddingProvider.OPENAI
         assert provider_config.vector_provider == VectorProvider.QDRANT_CLOUD
 
-    def test_embedding_service_config_openai(self):
+    def test_embedding_service_config_openai(self) -> None:
         """Test getting embedding service configuration for OpenAI"""
         config = Config(
             embedding_provider=EmbeddingProvider.OPENAI,
@@ -119,7 +119,7 @@ class TestMultiProviderConfig:
         }
         assert service_config == expected
 
-    def test_vector_service_config_qdrant_cloud(self):
+    def test_vector_service_config_qdrant_cloud(self) -> None:
         """Test getting vector service configuration for Qdrant Cloud"""
         config = Config(
             vector_provider=VectorProvider.QDRANT_CLOUD,
@@ -131,7 +131,7 @@ class TestMultiProviderConfig:
         expected = {"url": "https://test.qdrant.tech", "api_key": "test-key"}
         assert service_config == expected
 
-    def test_config_validation_openai_missing_api_key(self):
+    def test_config_validation_openai_missing_api_key(self) -> None:
         """Test validation when OpenAI provider is selected but API key is missing"""
         config = Config(
             embedding_provider=EmbeddingProvider.OPENAI,
@@ -141,7 +141,7 @@ class TestMultiProviderConfig:
         with pytest.raises(ValueError, match="OpenAI API key is required"):
             config.validate()
 
-    def test_config_validation_qdrant_cloud_missing_api_key(self):
+    def test_config_validation_qdrant_cloud_missing_api_key(self) -> None:
         """Test validation when Qdrant Cloud provider is selected but API key is missing"""
         config = Config(
             embedding_provider=EmbeddingProvider.OPENAI,
@@ -153,7 +153,7 @@ class TestMultiProviderConfig:
         with pytest.raises(ValueError, match="Qdrant Cloud API key is required"):
             config.validate()
 
-    def test_config_validation_qdrant_cloud_missing_url(self):
+    def test_config_validation_qdrant_cloud_missing_url(self) -> None:
         """Test validation when Qdrant Cloud provider is selected but URL is missing"""
         config = Config(
             embedding_provider=EmbeddingProvider.OPENAI,
@@ -166,7 +166,7 @@ class TestMultiProviderConfig:
         with pytest.raises(ValueError, match="Qdrant Cloud URL is required"):
             config.validate()
 
-    def test_provider_factory_creation_from_config(self):
+    def test_provider_factory_creation_from_config(self) -> None:
         """Test creating services using ProviderFactory from config"""
         config = Config(
             embedding_provider=EmbeddingProvider.OPENAI,
@@ -189,7 +189,7 @@ class TestMultiProviderConfig:
         )
         assert factory.validate_vector_config(config.vector_provider, vector_config)
 
-    def test_backward_compatibility_env_vars(self):
+    def test_backward_compatibility_env_vars(self) -> None:
         """Test that existing environment variables still work"""
         with patch.dict(
             os.environ,
@@ -216,7 +216,7 @@ class TestMultiProviderConfig:
             assert config.qdrant_cloud_url == "https://custom.qdrant.tech"
             assert config.qdrant_api_key == "custom-key"
 
-    def test_mixed_provider_environment_config(self):
+    def test_mixed_provider_environment_config(self) -> None:
         """Test configuration with mixed providers and their respective settings"""
         with patch.dict(
             os.environ,
@@ -238,7 +238,7 @@ class TestMultiProviderConfig:
             assert config.qdrant_cloud_url == "https://test.qdrant.tech"
             assert config.qdrant_api_key == "cloud-key"
 
-    def test_config_dict_export(self):
+    def test_config_dict_export(self) -> None:
         """Test exporting configuration as dictionary"""
         config = Config(
             embedding_provider=EmbeddingProvider.OPENAI,
@@ -254,7 +254,7 @@ class TestMultiProviderConfig:
         assert "openai_api_key" in config_dict
         assert "qdrant_cloud_url" in config_dict
 
-    def test_config_from_dict(self):
+    def test_config_from_dict(self) -> None:
         """Test creating configuration from dictionary"""
         config_dict = {
             "embedding_provider": "openai",

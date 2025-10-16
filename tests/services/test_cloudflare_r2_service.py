@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+from typing import Any, Tuple
 from unittest.mock import MagicMock
 
 import pytest
@@ -13,7 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 class TestCloudflareR2Service:
     """Validate CloudflareR2Service behavior."""
 
-    def _service(self, **overrides):
+    def _service(self, **overrides: Any) -> Tuple[Any, MagicMock]:
         from src.services.cloudflare_r2_service import CloudflareR2Service
 
         config = {
@@ -30,7 +31,7 @@ class TestCloudflareR2Service:
         service = CloudflareR2Service(config, s3_client=mock_client)
         return service, mock_client
 
-    def test_upload_document_serializes_metadata(self):
+    def test_upload_document_serializes_metadata(self) -> None:
         from src.services.cloudflare_r2_service import DEFAULT_CONTENT_TYPE
 
         service, mock_client = self._service()
@@ -51,7 +52,7 @@ class TestCloudflareR2Service:
         assert json.loads(call_kwargs["Metadata"]["frontmatter"])["title"] == "학칙"
         assert result["key"] == "policies/규정/학칙.md"
 
-    def test_delete_document_soft_delete(self):
+    def test_delete_document_soft_delete(self) -> None:
         service, mock_client = self._service(
             soft_delete_enabled=True, soft_delete_prefix="archive"
         )
@@ -69,12 +70,12 @@ class TestCloudflareR2Service:
         delete_kwargs = mock_client.delete_object.call_args.kwargs
         assert delete_kwargs["Key"] == "policies/rules/rule.md"
 
-    def test_build_object_key_handles_prefix(self):
+    def test_build_object_key_handles_prefix(self) -> None:
         service, _ = self._service(key_prefix="docs")
         key = service.build_object_key("./가이드\\문서.md")
         assert key == "docs/가이드/문서.md"
 
-    def test_upload_document_retries_on_transient_failure(self):
+    def test_upload_document_retries_on_transient_failure(self) -> None:
         service, mock_client = self._service()
         mock_client.put_object.side_effect = [
             Exception("network glitch"),
@@ -87,7 +88,7 @@ class TestCloudflareR2Service:
         assert mock_client.put_object.call_count == 3
         assert result["version_id"] == "v3"
 
-    def test_upload_document_raises_after_retry_exhaustion(self):
+    def test_upload_document_raises_after_retry_exhaustion(self) -> None:
         service, mock_client = self._service()
         mock_client.put_object.side_effect = Exception("fatal error")
 
@@ -96,7 +97,7 @@ class TestCloudflareR2Service:
 
         assert mock_client.put_object.call_count == 3
 
-    def test_missing_bucket_raises(self):
+    def test_missing_bucket_raises(self) -> None:
         from src.services.cloudflare_r2_service import CloudflareR2Service
 
         with pytest.raises(ValueError):

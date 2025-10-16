@@ -19,7 +19,7 @@ from src.utils.providers import EmbeddingProvider, VectorProvider
 class TestSecurityClearText:
     """Test security measures for sensitive data storage."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Setup test fixtures."""
         self.config = Config(
             openai_api_key="sk-test123456789abcdef",
@@ -29,7 +29,7 @@ class TestSecurityClearText:
         )
         self.config_manager = ConfigurationManager()
 
-    def test_config_manager_export_masks_secrets_by_default(self):
+    def test_config_manager_export_masks_secrets_by_default(self) -> None:
         """Test that ConfigurationManager.export_config masks secrets by default."""
         # Test JSON format
         json_content = self.config_manager.export_config(
@@ -50,7 +50,7 @@ class TestSecurityClearText:
         assert "sk-test123456789abcdef" not in env_content
         assert "qd-secret987654321xyz" not in env_content
 
-    def test_config_manager_export_includes_secrets_when_requested(self):
+    def test_config_manager_export_includes_secrets_when_requested(self) -> None:
         """Test that ConfigurationManager.export_config includes secrets when requested."""
         # Test JSON format
         json_content = self.config_manager.export_config(

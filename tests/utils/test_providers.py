@@ -22,7 +22,7 @@ from src.utils.providers import (
 class TestProviderEnums:
     """Test provider enumeration classes"""
 
-    def test_embedding_provider_enum(self):
+    def test_embedding_provider_enum(self) -> None:
         """Test EmbeddingProvider enum has correct values"""
         assert EmbeddingProvider.OPENAI.value == "openai"
         assert EmbeddingProvider.OPENAI.value == "openai"
@@ -31,14 +31,14 @@ class TestProviderEnums:
         assert str(EmbeddingProvider.OPENAI) == "openai"
         assert str(EmbeddingProvider.OPENAI) == "openai"
 
-    def test_vector_provider_enum(self):
+    def test_vector_provider_enum(self) -> None:
         """Test VectorProvider enum has correct values"""
         assert VectorProvider.QDRANT_CLOUD.value == "qdrant_cloud"
 
         # Test string conversion
         assert str(VectorProvider.QDRANT_CLOUD) == "qdrant_cloud"
 
-    def test_embedding_provider_from_string(self):
+    def test_embedding_provider_from_string(self) -> None:
         """Test creating EmbeddingProvider from string"""
         assert EmbeddingProvider("openai") == EmbeddingProvider.OPENAI
         assert EmbeddingProvider("openai") == EmbeddingProvider.OPENAI
@@ -46,7 +46,7 @@ class TestProviderEnums:
         with pytest.raises(ValueError):
             EmbeddingProvider("invalid")
 
-    def test_vector_provider_from_string(self):
+    def test_vector_provider_from_string(self) -> None:
         """Test creating VectorProvider from string"""
         assert VectorProvider("qdrant_cloud") == VectorProvider.QDRANT_CLOUD
 
@@ -57,12 +57,12 @@ class TestProviderEnums:
 class TestEmbeddingServiceInterface:
     """Test EmbeddingServiceInterface abstract base class"""
 
-    def test_interface_is_abstract(self):
+    def test_interface_is_abstract(self) -> None:
         """Test that EmbeddingServiceInterface cannot be instantiated"""
         with pytest.raises(TypeError):
-            EmbeddingServiceInterface()
+            EmbeddingServiceInterface()  # type: ignore[abstract]
 
-    def test_interface_methods_are_abstract(self):
+    def test_interface_methods_are_abstract(self) -> None:
         """Test that all required methods are abstract"""
 
         # Create a mock class that doesn't implement required methods
@@ -70,9 +70,9 @@ class TestEmbeddingServiceInterface:
             pass
 
         with pytest.raises(TypeError):
-            IncompleteEmbeddingService()
+            IncompleteEmbeddingService()  # type: ignore[abstract]
 
-    def test_concrete_implementation_works(self):
+    def test_concrete_implementation_works(self) -> None:
         """Test that concrete implementation of interface works"""
 
         class ConcreteEmbeddingService(EmbeddingServiceInterface):
@@ -99,12 +99,12 @@ class TestEmbeddingServiceInterface:
 class TestVectorServiceInterface:
     """Test VectorServiceInterface abstract base class"""
 
-    def test_interface_is_abstract(self):
+    def test_interface_is_abstract(self) -> None:
         """Test that VectorServiceInterface cannot be instantiated"""
         with pytest.raises(TypeError):
-            VectorServiceInterface()
+            VectorServiceInterface()  # type: ignore[abstract]
 
-    def test_concrete_implementation_works(self):
+    def test_concrete_implementation_works(self) -> None:
         """Test that concrete implementation of interface works"""
 
         class ConcreteVectorService(VectorServiceInterface):
@@ -140,7 +140,7 @@ class TestVectorServiceInterface:
 class TestProviderConfig:
     """Test ProviderConfig class"""
 
-    def test_provider_config_creation(self):
+    def test_provider_config_creation(self) -> None:
         """Test creating ProviderConfig with different providers"""
         config = ProviderConfig(
             embedding_provider=EmbeddingProvider.OPENAI,
@@ -150,7 +150,7 @@ class TestProviderConfig:
         assert config.embedding_provider == EmbeddingProvider.OPENAI
         assert config.vector_provider == VectorProvider.QDRANT_CLOUD
 
-    def test_provider_config_from_strings(self):
+    def test_provider_config_from_strings(self) -> None:
         """Test creating ProviderConfig from string values"""
         config = ProviderConfig.from_strings(
             embedding_provider="openai", vector_provider="qdrant_cloud"
@@ -159,7 +159,7 @@ class TestProviderConfig:
         assert config.embedding_provider == EmbeddingProvider.OPENAI
         assert config.vector_provider == VectorProvider.QDRANT_CLOUD
 
-    def test_provider_config_validation(self):
+    def test_provider_config_validation(self) -> None:
         """Test ProviderConfig validation"""
         # Valid combinations should work
         config = ProviderConfig(
@@ -174,7 +174,7 @@ class TestProviderConfig:
                 embedding_provider="invalid", vector_provider="qdrant_cloud"
             )
 
-    def test_provider_config_to_dict(self):
+    def test_provider_config_to_dict(self) -> None:
         """Test converting ProviderConfig to dictionary"""
         config = ProviderConfig(
             embedding_provider=EmbeddingProvider.OPENAI,
@@ -189,12 +189,12 @@ class TestProviderConfig:
 class TestProviderFactory:
     """Test ProviderFactory class"""
 
-    def test_factory_creation(self):
+    def test_factory_creation(self) -> None:
         """Test creating ProviderFactory"""
         factory = ProviderFactory()
         assert factory is not None
 
-    def test_get_embedding_service_openai(self):
+    def test_get_embedding_service_openai(self) -> None:
         """Test getting OpenAI embedding service from factory"""
         factory = ProviderFactory()
 
@@ -213,7 +213,7 @@ class TestProviderFactory:
                 {"api_key": "test-key", "model": "text-embedding-3-small"}
             )
 
-    def test_get_vector_service_qdrant_cloud(self):
+    def test_get_vector_service_qdrant_cloud(self) -> None:
         """Test getting Qdrant Cloud service from factory"""
         factory = ProviderFactory()
 
@@ -232,7 +232,7 @@ class TestProviderFactory:
                 {"url": "https://test.qdrant.tech", "api_key": "test-key"}
             )
 
-    def test_unsupported_embedding_provider(self):
+    def test_unsupported_embedding_provider(self) -> None:
         """Test error handling for unsupported embedding provider"""
         factory = ProviderFactory()
 
@@ -243,7 +243,7 @@ class TestProviderFactory:
             fake_provider.value = "unsupported"
             factory.get_embedding_service(fake_provider, {})
 
-    def test_unsupported_vector_provider(self):
+    def test_unsupported_vector_provider(self) -> None:
         """Test error handling for unsupported vector provider"""
         factory = ProviderFactory()
 
@@ -257,7 +257,7 @@ class TestProviderFactory:
 class TestProviderConfigValidation:
     """Test provider configuration validation"""
 
-    def test_openai_config_validation(self):
+    def test_openai_config_validation(self) -> None:
         """Test OpenAI configuration validation"""
         factory = ProviderFactory()
 
@@ -271,7 +271,7 @@ class TestProviderConfigValidation:
             EmbeddingProvider.OPENAI, invalid_config
         )
 
-    def test_qdrant_cloud_config_validation(self):
+    def test_qdrant_cloud_config_validation(self) -> None:
         """Test Qdrant Cloud configuration validation"""
         factory = ProviderFactory()
 

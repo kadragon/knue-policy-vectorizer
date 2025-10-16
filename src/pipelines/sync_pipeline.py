@@ -71,8 +71,10 @@ except ImportError:  # pragma: no cover - fallback when executed as script
     from src.utils.markdown_processor import MarkdownProcessor
     from src.utils.providers import (
         EmbeddingProvider,
+        EmbeddingServiceInterface,
         ProviderFactory,
         VectorProvider,
+        VectorServiceInterface,
         get_available_embedding_providers,
         get_available_vector_providers,
     )
@@ -169,12 +171,12 @@ class SyncPipeline:
 
     def _ensure_collection_exists(self) -> bool:
         """Ensure the Qdrant collection exists."""
-        if not self.qdrant_service.collection_exists():
+        if not self.qdrant_service.collection_exists(self.config.qdrant_collection):
             self.logger.info(
                 "Creating collection", collection=self.config.qdrant_collection
             )
             try:
-                self.qdrant_service.create_collection()
+                self.qdrant_service.create_collection(self.config.qdrant_collection, self.config.vector_size)
                 return True
             except Exception as e:
                 self.logger.error("Failed to create collection", error=str(e))
@@ -190,7 +192,7 @@ class SyncPipeline:
             if action == "delete":
                 # For deleted files, delete all chunks
                 doc_id = self.markdown_processor.calculate_document_id(file_path)
-                self.qdrant_service.delete_document_chunks(doc_id)
+                self.qdrant_service.delete_document_chunks(doc_id)  # type: ignore[attr-defined]
                 return {
                     "file": file_path,
                     "action": "delete",
@@ -254,9 +256,13 @@ class SyncPipeline:
                         )
 
                         # Upsert to Qdrant
-                        self.qdrant_service.upsert_point(
-                            point_id=doc_id, vector=embedding, metadata=metadata
-                        )
+                        self.qdrant_service.upsert_points(self.config.qdrant_collection, [
+                        {
+                                "id": doc_id,
+                                "vector": embedding,
+                                "payload": metadata,
+                            }
+                        ])
                     except ValueError as e:
                         if "exceeds maximum token limit" in str(e):
                             self.logger.warning(
@@ -367,7 +373,7 @@ class SyncPipeline:
 
         # Batch upsert all chunks to Qdrant
         self.logger.debug("Batch upserting chunks", chunk_count=len(batch_points))
-        self.qdrant_service.upsert_points_batch(batch_points)
+        self.qdrant_service.upsert_points(self.config.qdrant_collection, batch_points)
 
     def sync(self) -> Dict[str, Any]:
         """Perform incremental synchronization."""
@@ -521,15 +527,15 @@ class SyncPipeline:
 
             # Recreate collection (delete + create)
             collection_name = self.config.qdrant_collection
-            if self.qdrant_service.collection_exists():
+            if self.qdrant_service.collection_exists(collection_name):
                 self.logger.info(
                     "Deleting existing collection", collection=collection_name
                 )
-                self.qdrant_service.delete_collection()
+                self.qdrant_service.delete_collection(collection_name)
 
             self.logger.info("Creating new collection", collection=collection_name)
             try:
-                self.qdrant_service.create_collection()
+                self.qdrant_service.create_collection(collection_name, self.config.vector_size)
             except Exception as e:
                 raise SyncError("Failed to create collection") from e
 
@@ -622,7 +628,7 @@ def configure_providers() -> None:
             click.echo(f"❌ Invalid provider: {provider_choice}")
 
     # Provider-specific configuration
-    config_dict = {"embedding_provider": embedding_provider}
+    config_dict: Dict[str, Any] = {"embedding_provider": embedding_provider}
 
     if embedding_provider == EmbeddingProvider.OPENAI:
         config_dict["openai_api_key"] = click.prompt(
@@ -1240,7 +1246,7 @@ def create_config_from_template(
     validate_only: bool,
     output: Optional[str] = None,
     format: str = "env",
-):
+) -> None:
     """Create configuration from template."""
     click.echo(f"🔧 Creating Configuration from Template: {template_name}\n")
 
@@ -1339,7 +1345,7 @@ def create_config_from_template(
 @main.command(name="config-validate")
 @click.option("--config-file", help="Configuration file to validate")
 @click.option("--detailed", is_flag=True, help="Show detailed validation report")
-def validate_config_file(config_file: Optional[str] = None, detailed: bool = False):
+def validate_config_file(config_file: Optional[str] = None, detailed: bool = False) -> None:
     """Validate configuration file or current environment."""
     click.echo("🔍 Configuration Validation\n")
 
@@ -1417,7 +1423,7 @@ def validate_config_file(config_file: Optional[str] = None, detailed: bool = Fal
 @main.command(name="config-backup")
 @click.option("--description", "-d", default="", help="Backup description")
 @click.option("--config-file", help="Configuration file to backup")
-def backup_config(description: str, config_file: Optional[str] = None):
+def backup_config(description: str, config_file: Optional[str] = None) -> None:
     """Create configuration backup."""
     click.echo("💾 Creating Configuration Backup\n")
 
@@ -1448,7 +1454,7 @@ def backup_config(description: str, config_file: Optional[str] = None):
 
 
 @main.command(name="config-backups")
-def list_config_backups():
+def list_config_backups() -> None:
     """List configuration backups."""
     click.echo("📋 Configuration Backups\n")
 
@@ -1473,7 +1479,7 @@ def list_config_backups():
 
 @main.command(name="load-config")
 @click.option("--config-file", required=True, help=".env file to load")
-def load_config_file(config_file: str):
+def load_config_file(config_file: str) -> None:
     """Load configuration from an .env file into environment."""
     try:
         try:
@@ -1496,7 +1502,7 @@ def load_config_file(config_file: str):
 
 @main.command(name="config-import")
 @click.option("--config-file", required=True, help="Path to JSON config file")
-def import_config(config_file: str):
+def import_config(config_file: str) -> None:
     """Import configuration from a JSON file and set environment variables."""
     try:
         with open(config_file, "r") as f:
@@ -1541,7 +1547,7 @@ def import_config(config_file: str):
 @main.command(name="config-cleanup")
 @click.option("--keep-days", default=30, help="Keep backups newer than N days")
 @click.option("--dry-run", is_flag=True, help="Show what would be deleted")
-def cleanup_config_backups(keep_days: int, dry_run: bool):
+def cleanup_config_backups(keep_days: int, dry_run: bool) -> None:
     """Clean up old configuration backups."""
     click.echo(f"🧹 Configuration Backup Cleanup\n")
 
@@ -1655,7 +1661,7 @@ qdrant_api_key: Optional[str] = None,
 
 @main.command(name="sync-cloudflare-r2")
 @click.option("--config-file", help="Path to configuration file")
-def sync_cloudflare_r2(config_file: Optional[str] = None):
+def sync_cloudflare_r2(config_file: Optional[str] = None) -> None:
     """Synchronize cleaned markdown documents to Cloudflare R2."""
     config = Config.from_env() if config_file is None else Config()
 
@@ -1707,7 +1713,7 @@ def reindex(
     openai_api_key: Optional[str] = None,
     qdrant_cloud_url: Optional[str] = None,
     qdrant_api_key: Optional[str] = None,
-):
+) -> None:
     """Perform full reindexing (WARNING: This will recreate the collection)."""
     if not yes:
         if not click.confirm(
@@ -1785,7 +1791,7 @@ def health(
     qdrant_cloud_url: Optional[str] = None,
     qdrant_api_key: Optional[str] = None,
     verbose: bool = False,
-):
+) -> None:
     """Check health of all services."""
     config = Config.from_env() if config_file is None else Config()
 
@@ -1838,7 +1844,7 @@ def health(
     type=int,
     help="Specific board indices to ingest (repeatable)",
 )
-def board_sync(board_idx: tuple[int, ...]):
+def board_sync(board_idx: tuple[int, ...]) -> None:
     """Ingest KNUE web board posts into Qdrant collection for boards."""
     click.echo("📰 KNUE Board Sync\n")
 
@@ -1884,7 +1890,7 @@ def board_sync(board_idx: tuple[int, ...]):
     default=None,
     help="Delete and recreate the entire board collection before reindexing",
 )
-def board_reindex(board_idx: tuple[int, ...], drop_collection: Optional[bool]):
+def board_reindex(board_idx: tuple[int, ...], drop_collection: Optional[bool]) -> None:
     """Reindex KNUE web board posts into the board collection.
 
     If no board indices are provided and --drop-collection is not set, the command
