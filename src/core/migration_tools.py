@@ -395,11 +395,11 @@ class MigrationManager:
         self.logger.info("Creating backup", backup_path=backup_path)
 
         backup_data: Dict[str, Any] = {
-        "timestamp": datetime.now().isoformat(),
-        "source_collection": self.source_config.qdrant_collection,
-        "collection_name": self.source_config.qdrant_collection,
-        "source_config": self.source_config.to_dict(),
-        "points": [],
+            "timestamp": datetime.now().isoformat(),
+            "source_collection": self.source_config.qdrant_collection,
+            "collection_name": self.source_config.qdrant_collection,
+            "source_config": self.source_config.to_dict(),
+            "points": [],
         }
 
         try:
@@ -542,7 +542,7 @@ class MigrationManager:
                     return report
 
                 report.performance_metrics["backup_points"] = backup_result[  # type: ignore[index]
-                "points_backed_up"
+                    "points_backed_up"
                 ]
 
             # Check compatibility
@@ -660,7 +660,9 @@ class MigrationManager:
             if embedding_times:
                 report.performance_metrics["avg_embedding_time"] = sum(  # type: ignore[index]
                     embedding_times
-                ) / len(embedding_times)
+                ) / len(
+                    embedding_times
+                )
                 report.performance_metrics["total_embedding_time"] = sum(  # type: ignore[index]
                     embedding_times
                 )
@@ -668,7 +670,9 @@ class MigrationManager:
             if storage_times:
                 report.performance_metrics["avg_storage_time"] = sum(  # type: ignore[index]
                     storage_times
-                ) / len(storage_times)
+                ) / len(
+                    storage_times
+                )
                 report.performance_metrics["total_storage_time"] = sum(storage_times)  # type: ignore[index]
 
             report.end_time = datetime.now()
@@ -804,11 +808,11 @@ class MigrationManager:
 
 
 def create_migration_config(
-source_embedding: str,
-source_vector: str,
-target_embedding: str,
-target_vector: str,
-**kwargs: Any,
+    source_embedding: str,
+    source_vector: str,
+    target_embedding: str,
+    target_vector: str,
+    **kwargs: Any,
 ) -> Tuple[Config, Config]:
     """Create source and target configurations for migration"""
 

@@ -13,7 +13,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
 from urllib.parse import urljoin
 
 import requests
@@ -21,6 +21,9 @@ import structlog
 
 from src.config.config import Config
 from src.utils.providers import EmbeddingProvider, ProviderFactory
+
+if TYPE_CHECKING:
+    from qdrant_client import QdrantClient
 
 logger = structlog.get_logger(__name__)
 
@@ -54,7 +57,7 @@ class KnueBoardIngestor:
         )
 
         # Lazily create Qdrant client on first use
-        self._qdrant_client: Optional[Any] = None
+        self._qdrant_client: Optional[QdrantClient] = None
 
     # --------- HTTP helpers ---------
     def _http_get(self, url: str, timeout: int = 15) -> str:
@@ -211,7 +214,9 @@ class KnueBoardIngestor:
                 self.parts: List[str] = []
                 self._skip_depth: int = 0  # inside <script>/<style>
 
-            def handle_starttag(self, tag: str, attrs: List[tuple[str, str | None]]) -> None:
+            def handle_starttag(
+                self, tag: str, attrs: List[tuple[str, str | None]]
+            ) -> None:
                 t = tag.lower()
                 if t in {"script", "style"}:
                     # Enter skip mode for script/style content
@@ -370,7 +375,7 @@ class KnueBoardIngestor:
 
     # --------- Qdrant client helpers ---------
     @property
-    def qdrant_client(self) -> Any:  # lazy
+    def qdrant_client(self) -> QdrantClient:
         from qdrant_client import QdrantClient
 
         if self._qdrant_client is not None:

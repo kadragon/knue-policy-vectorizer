@@ -31,11 +31,11 @@ try:
     from src.utils.logger import setup_logger
     from src.utils.markdown_processor import MarkdownProcessor
     from src.utils.providers import (
-    EmbeddingProvider,
-    EmbeddingServiceInterface,
-    ProviderFactory,
-    VectorProvider,
-    VectorServiceInterface,
+        EmbeddingProvider,
+        EmbeddingServiceInterface,
+        ProviderFactory,
+        VectorProvider,
+        VectorServiceInterface,
         get_available_embedding_providers,
         get_available_vector_providers,
     )
@@ -176,7 +176,9 @@ class SyncPipeline:
                 "Creating collection", collection=self.config.qdrant_collection
             )
             try:
-                self.qdrant_service.create_collection(self.config.qdrant_collection, self.config.vector_size)
+                self.qdrant_service.create_collection(
+                    self.config.qdrant_collection, self.config.vector_size
+                )
                 return True
             except Exception as e:
                 self.logger.error("Failed to create collection", error=str(e))
@@ -256,13 +258,16 @@ class SyncPipeline:
                         )
 
                         # Upsert to Qdrant
-                        self.qdrant_service.upsert_points(self.config.qdrant_collection, [
-                        {
-                                "id": doc_id,
-                                "vector": embedding,
-                                "payload": metadata,
-                            }
-                        ])
+                        self.qdrant_service.upsert_points(
+                            self.config.qdrant_collection,
+                            [
+                                {
+                                    "id": doc_id,
+                                    "vector": embedding,
+                                    "payload": metadata,
+                                }
+                            ],
+                        )
                     except ValueError as e:
                         if "exceeds maximum token limit" in str(e):
                             self.logger.warning(
@@ -407,7 +412,7 @@ class SyncPipeline:
 
             # Get changed files
             added_files, modified_files, deleted_files_list, renamed_files = (
-            self.git_watcher.get_changed_files(self._last_commit or "", current_commit)
+                self.git_watcher.get_changed_files(self._last_commit, current_commit)
             )
 
             processed_files = []
@@ -535,7 +540,9 @@ class SyncPipeline:
 
             self.logger.info("Creating new collection", collection=collection_name)
             try:
-                self.qdrant_service.create_collection(collection_name, self.config.vector_size)
+                self.qdrant_service.create_collection(
+                    collection_name, self.config.vector_size
+                )
             except Exception as e:
                 raise SyncError("Failed to create collection") from e
 
@@ -748,11 +755,11 @@ def show_config() -> None:
 @click.option("--qdrant-cloud-url", help="Qdrant Cloud URL")
 @click.option("--qdrant-api-key", help="Qdrant Cloud API key")
 def test_providers(
-embedding_provider: Optional[str] = None,
-vector_provider: Optional[str] = None,
-openai_api_key: Optional[str] = None,
-qdrant_cloud_url: Optional[str] = None,
-qdrant_api_key: Optional[str] = None,
+    embedding_provider: Optional[str] = None,
+    vector_provider: Optional[str] = None,
+    openai_api_key: Optional[str] = None,
+    qdrant_cloud_url: Optional[str] = None,
+    qdrant_api_key: Optional[str] = None,
 ) -> None:
     """Test connectivity to specified providers."""
     click.echo("🔍 Testing Provider Connectivity\n")
@@ -1345,7 +1352,9 @@ def create_config_from_template(
 @main.command(name="config-validate")
 @click.option("--config-file", help="Configuration file to validate")
 @click.option("--detailed", is_flag=True, help="Show detailed validation report")
-def validate_config_file(config_file: Optional[str] = None, detailed: bool = False) -> None:
+def validate_config_file(
+    config_file: Optional[str] = None, detailed: bool = False
+) -> None:
     """Validate configuration file or current environment."""
     click.echo("🔍 Configuration Validation\n")
 
@@ -1588,12 +1597,12 @@ def cleanup_config_backups(keep_days: int, dry_run: bool) -> None:
 @click.option("--qdrant-cloud-url", help="Override Qdrant Cloud URL")
 @click.option("--qdrant-api-key", help="Override Qdrant Cloud API key")
 def sync(
-config_file: Optional[str] = None,
-embedding_provider: Optional[str] = None,
-vector_provider: Optional[str] = None,
-openai_api_key: Optional[str] = None,
-qdrant_cloud_url: Optional[str] = None,
-qdrant_api_key: Optional[str] = None,
+    config_file: Optional[str] = None,
+    embedding_provider: Optional[str] = None,
+    vector_provider: Optional[str] = None,
+    openai_api_key: Optional[str] = None,
+    qdrant_cloud_url: Optional[str] = None,
+    qdrant_api_key: Optional[str] = None,
 ) -> None:
     """Perform incremental synchronization."""
     config = Config.from_env() if config_file is None else Config()

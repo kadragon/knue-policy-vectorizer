@@ -5,6 +5,8 @@ Handles vector storage operations including collection management,
 point operations (upsert, delete, search), and error handling.
 """
 
+from __future__ import annotations
+
 from typing import Any, Dict, List, Optional, Union
 
 import structlog
@@ -61,7 +63,7 @@ class QdrantService:
         self.collection_name = collection_name
         self.vector_size = vector_size
         self.distance = distance
-        self._client: Optional[Any] = None
+        self._client: Optional[QdrantClient] = None
 
         logger.info(
             "Initialized QdrantService",
@@ -310,7 +312,7 @@ class QdrantService:
         """
         try:
             result = self.client.delete(
-                collection_name=self.collection_name, points_selector=point_ids
+                collection_name=self.collection_name, points_selector=point_ids  # type: ignore[arg-type,unused-ignore]
             )
 
             logger.info("Batch deleted points", count=len(point_ids))
@@ -421,9 +423,9 @@ class QdrantService:
                 "vectors_count": info.points_count,
                 "vector_size": info.config.params.vectors.size,  # type: ignore[union-attr]
                 "distance": (
-                info.config.params.vectors.distance.value  # type: ignore[union-attr]
-                if hasattr(info.config.params.vectors.distance, "value")  # type: ignore[union-attr]
-                else str(info.config.params.vectors.distance)  # type: ignore[union-attr]
+                    info.config.params.vectors.distance.value  # type: ignore[union-attr]
+                    if hasattr(info.config.params.vectors.distance, "value")  # type: ignore[union-attr]
+                    else str(info.config.params.vectors.distance)  # type: ignore[union-attr]
                 ),
             }
 
@@ -541,7 +543,7 @@ class QdrantService:
             # Delete all found IDs in batch
             result = self.client.delete(
                 collection_name=self.collection_name,
-                points_selector=point_ids_to_delete,
+                points_selector=point_ids_to_delete,  # type: ignore[arg-type,unused-ignore]
             )
 
             logger.info(

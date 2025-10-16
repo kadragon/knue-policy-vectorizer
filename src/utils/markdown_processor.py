@@ -1008,7 +1008,9 @@ class MarkdownProcessor:
 
         try:
             # Step 1: Remove frontmatter
-            frontmatter_result = self.remove_frontmatter(raw_content, return_metadata=True)
+            frontmatter_result = self.remove_frontmatter(
+                raw_content, return_metadata=True
+            )
             if isinstance(frontmatter_result, tuple):
                 content_no_frontmatter, frontmatter_metadata = frontmatter_result
             else:
@@ -1100,7 +1102,9 @@ class MarkdownProcessor:
         """
         self.logger.debug("Processing markdown for R2", filename=filename)
         try:
-            frontmatter_result = self.remove_frontmatter(raw_content, return_metadata=True)
+            frontmatter_result = self.remove_frontmatter(
+                raw_content, return_metadata=True
+            )
             if isinstance(frontmatter_result, tuple):
                 content_no_frontmatter, frontmatter_metadata = frontmatter_result
             else:
@@ -1110,10 +1114,10 @@ class MarkdownProcessor:
             clean_content = self.clean_content(content_no_frontmatter)
 
             return {
-            "content": clean_content,
-            "title": title,
-            "frontmatter": frontmatter_metadata,
-            "char_count": len(clean_content),
+                "content": clean_content,
+                "title": title,
+                "frontmatter": frontmatter_metadata,
+                "char_count": len(clean_content),
             }
         except Exception as e:
             self.logger.error(

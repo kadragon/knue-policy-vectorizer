@@ -5,27 +5,27 @@ repos:
         name: black
         entry: uv run black
         language: system
-        files: \\.(py)$
+        files: \.py$
         args: [--check]
 
       - id: isort
         name: isort
         entry: uv run isort
         language: system
-        files: \\.(py)$
+        files: \.py$
         args: [--check-only]
 
       - id: mypy
         name: mypy (optional)
-        entry: bash -c 'uv run mypy src/ || echo \"mypy check failed - continuing\"'
+        entry: bash -c 'uv run mypy src/ || echo "mypy check failed - continuing"'
         language: system
-        files: ^src/.*\\.py$
+        files: ^src/.*\.py$
         pass_filenames: false
 
       - id: pytest-unit
         name: pytest (unit tests)
         entry: uv run pytest
         language: system
-        files: \\.(py)$
-        args: [tests/, -v, -m, \"not slow\", --tb=short]
+        files: \.py$
+        args: [tests/, -v, -m, "not slow", --tb=short]
         pass_filenames: false

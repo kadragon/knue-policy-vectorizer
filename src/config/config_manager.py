@@ -233,10 +233,10 @@ class ConfigurationManager:
     def validate_config(self, config: Config) -> Dict[str, Any]:
         """Comprehensive configuration validation"""
         validation_result: Dict[str, Any] = {
-        "valid": True,
-        "errors": [],
-        "warnings": [],
-        "suggestions": [],
+            "valid": True,
+            "errors": [],
+            "warnings": [],
+            "suggestions": [],
         }
 
         try:
@@ -348,7 +348,9 @@ class ConfigurationManager:
         for template_file in self.templates_dir.glob("*.json"):
             try:
                 template = self.load_template(template_file.stem)
-                if template and (tag is None or (template.tags and tag in template.tags)):
+                if template and (
+                    tag is None or (template.tags and tag in template.tags)
+                ):
                     templates.append(template)
             except Exception as e:
                 self.logger.warning(

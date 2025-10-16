@@ -35,7 +35,7 @@ def setup_logger(
     }
 
     def add_colors(
-    logger: Any, method_name: str, event_dict: dict[str, Any]
+        logger: Any, method_name: str, event_dict: dict[str, Any]
     ) -> dict[str, Any]:
         """Add colors to log output based on level."""
         level = event_dict.get("level", "info").lower()

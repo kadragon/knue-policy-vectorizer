@@ -181,7 +181,9 @@ class QdrantCloudService(VectorServiceInterface):
                     "Authentication failed: Invalid API key"
                 )
             elif e.status_code == 400:
-                raise QdrantCloudError(f"Bad request: {e.content.decode('utf-8', errors='ignore')}")
+                raise QdrantCloudError(
+                    f"Bad request: {e.content.decode('utf-8', errors='ignore')}"
+                )
             else:
                 raise QdrantCloudError(f"Qdrant Cloud operation failed: {e}")
         except ResponseHandlingException as e:
