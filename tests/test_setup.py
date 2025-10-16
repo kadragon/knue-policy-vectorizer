@@ -39,7 +39,6 @@ def test_project_structure() -> None:
     # Check main directories exist
     assert os.path.exists("src")
     assert os.path.exists("tests")
-    assert os.path.exists("config")
 
     # Check configuration files exist
     assert os.path.exists("pyproject.toml")

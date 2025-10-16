@@ -72,72 +72,53 @@ class ConfigTemplate:
 class ConfigurationManager:
     """Advanced configuration management system"""
 
-    def __init__(self, config_dir: str = "./config"):
+    # Default templates stored in memory
+    _DEFAULT_TEMPLATES = [
+        ConfigTemplate(
+            name="openai-cloud",
+            description="OpenAI embeddings with Qdrant Cloud",
+            embedding_provider=EmbeddingProvider.OPENAI,
+            vector_provider=VectorProvider.QDRANT_CLOUD,
+            config_overrides={
+                "openai_model": "text-embedding-3-small",
+                "openai_base_url": "https://api.openai.com/v1",
+                "vector_size": 1536,
+                "max_tokens": 8191,
+            },
+            required_env_vars=[
+                "OPENAI_API_KEY",
+                "QDRANT_CLOUD_URL",
+                "QDRANT_API_KEY",
+            ],
+            optional_env_vars=["OPENAI_MODEL"],
+            tags=["openai", "cloud", "qdrant", "production"],
+        ),
+        ConfigTemplate(
+            name="production-high-performance",
+            description="High-performance production setup with OpenAI and Qdrant Cloud",
+            embedding_provider=EmbeddingProvider.OPENAI,
+            vector_provider=VectorProvider.QDRANT_CLOUD,
+            config_overrides={
+                "openai_model": "text-embedding-3-large",
+                "openai_base_url": "https://api.openai.com/v1",
+                "vector_size": 3072,
+                "max_tokens": 8191,
+                "max_workers": 8,
+                "chunk_threshold": 1000,
+            },
+            required_env_vars=[
+                "OPENAI_API_KEY",
+                "QDRANT_CLOUD_URL",
+                "QDRANT_API_KEY",
+            ],
+            optional_env_vars=["MAX_WORKERS"],
+            tags=["production", "high-performance", "openai", "cloud"],
+        ),
+    ]
+
+    def __init__(self) -> None:
         """Initialize configuration manager"""
-        self.config_dir = Path(config_dir)
-        self.templates_dir = self.config_dir / "templates"
-
-        # Create directories
-        for directory in [
-            self.config_dir,
-            self.templates_dir,
-        ]:
-            directory.mkdir(parents=True, exist_ok=True)
-
         self.logger = logger.bind(component="ConfigurationManager")
-
-        # Initialize with default templates
-        self._ensure_default_templates()
-
-    def _ensure_default_templates(self) -> None:
-        """Create default configuration templates"""
-        default_templates = [
-            ConfigTemplate(
-                name="openai-cloud",
-                description="OpenAI embeddings with Qdrant Cloud",
-                embedding_provider=EmbeddingProvider.OPENAI,
-                vector_provider=VectorProvider.QDRANT_CLOUD,
-                config_overrides={
-                    "openai_model": "text-embedding-3-small",
-                    "openai_base_url": "https://api.openai.com/v1",
-                    "vector_size": 1536,
-                    "max_tokens": 8191,
-                },
-                required_env_vars=[
-                    "OPENAI_API_KEY",
-                    "QDRANT_CLOUD_URL",
-                    "QDRANT_API_KEY",
-                ],
-                optional_env_vars=["OPENAI_MODEL"],
-                tags=["openai", "cloud", "qdrant", "production"],
-            ),
-            ConfigTemplate(
-                name="production-high-performance",
-                description="High-performance production setup with OpenAI and Qdrant Cloud",
-                embedding_provider=EmbeddingProvider.OPENAI,
-                vector_provider=VectorProvider.QDRANT_CLOUD,
-                config_overrides={
-                    "openai_model": "text-embedding-3-large",
-                    "openai_base_url": "https://api.openai.com/v1",
-                    "vector_size": 3072,
-                    "max_tokens": 8191,
-                    "max_workers": 8,
-                    "chunk_threshold": 1000,
-                },
-                required_env_vars=[
-                    "OPENAI_API_KEY",
-                    "QDRANT_CLOUD_URL",
-                    "QDRANT_API_KEY",
-                ],
-                optional_env_vars=["MAX_WORKERS"],
-                tags=["production", "high-performance", "openai", "cloud"],
-            ),
-        ]
-
-        for template in default_templates:
-            template_file = self.templates_dir / f"{template.name}.json"
-            if not template_file.exists():
-                self.save_template(template)
 
     def validate_config(self, config: Config) -> Dict[str, Any]:
         """Comprehensive configuration validation"""
@@ -216,56 +197,19 @@ class ConfigurationManager:
 
         return validation_result
 
-    def save_template(self, template: ConfigTemplate) -> bool:
-        """Save configuration template"""
-        try:
-            template_file = self.templates_dir / f"{template.name}.json"
-            with open(template_file, "w") as f:
-                json.dump(template.to_dict(), f, indent=2)
-
-            self.logger.info(
-                "Template saved", name=template.name, file=str(template_file)
-            )
-            return True
-
-        except Exception as e:
-            self.logger.error(
-                "Failed to save template", name=template.name, error=str(e)
-            )
-            return False
-
     def load_template(self, name: str) -> Optional[ConfigTemplate]:
-        """Load configuration template"""
-        try:
-            template_file = self.templates_dir / f"{name}.json"
-            if not template_file.exists():
-                return None
-
-            with open(template_file, "r") as f:
-                data = json.load(f)
-
-            return ConfigTemplate.from_dict(data)
-
-        except Exception as e:
-            self.logger.error("Failed to load template", name=name, error=str(e))
-            return None
+        """Load configuration template from memory"""
+        for template in self._DEFAULT_TEMPLATES:
+            if template.name == name:
+                return template
+        return None
 
     def list_templates(self, tag: Optional[str] = None) -> List[ConfigTemplate]:
         """List available configuration templates"""
         templates = []
-
-        for template_file in self.templates_dir.glob("*.json"):
-            try:
-                template = self.load_template(template_file.stem)
-                if template and (
-                    tag is None or (template.tags and tag in template.tags)
-                ):
-                    templates.append(template)
-            except Exception as e:
-                self.logger.warning(
-                    "Failed to load template", file=str(template_file), error=str(e)
-                )
-
+        for template in self._DEFAULT_TEMPLATES:
+            if tag is None or (template.tags and tag in template.tags):
+                templates.append(template)
         return sorted(templates, key=lambda t: t.name)
 
     def create_config_from_template(
