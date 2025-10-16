@@ -1,8 +1,10 @@
 """Main synchronization pipeline for KNUE Policy Hub to Qdrant."""
 
 import hashlib
+import json
 import os
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -29,9 +31,11 @@ try:
     from src.utils.logger import setup_logger
     from src.utils.markdown_processor import MarkdownProcessor
     from src.utils.providers import (
-        EmbeddingProvider,
-        ProviderFactory,
-        VectorProvider,
+    EmbeddingProvider,
+    EmbeddingServiceInterface,
+    ProviderFactory,
+    VectorProvider,
+    VectorServiceInterface,
         get_available_embedding_providers,
         get_available_vector_providers,
     )
@@ -43,29 +47,29 @@ except ImportError:  # pragma: no cover - fallback when executed as script
     if str(project_root) not in sys.path:
         sys.path.append(str(project_root))
 
-    from src.config.config import Config  # type: ignore
-    from src.config.config_manager import (  # type: ignore
+    from src.config.config import Config
+    from src.config.config_manager import (
         ConfigProfile,
         ConfigTemplate,
         ConfigurationManager,
     )
-    from src.core.git_watcher import GitWatcher  # type: ignore
-    from src.core.migration_tools import (  # type: ignore
+    from src.core.git_watcher import GitWatcher
+    from src.core.migration_tools import (
         MigrationManager,
         create_migration_config,
     )
-    from src.pipelines.r2_sync_pipeline import (  # type: ignore
+    from src.pipelines.r2_sync_pipeline import (
         CloudflareR2SyncError,
         CloudflareR2SyncPipeline,
     )
     from src.services.embedding_service_openai import (
-        OpenAIEmbeddingService,  # type: ignore
+        OpenAIEmbeddingService,
     )
-    from src.services.knue_board_ingestor import KnueBoardIngestor  # type: ignore
-    from src.services.qdrant_service import QdrantService  # type: ignore
-    from src.utils.logger import setup_logger  # type: ignore
-    from src.utils.markdown_processor import MarkdownProcessor  # type: ignore
-    from src.utils.providers import (  # type: ignore
+    from src.services.knue_board_ingestor import KnueBoardIngestor
+    from src.services.qdrant_service import QdrantService
+    from src.utils.logger import setup_logger
+    from src.utils.markdown_processor import MarkdownProcessor
+    from src.utils.providers import (
         EmbeddingProvider,
         ProviderFactory,
         VectorProvider,
@@ -118,7 +122,7 @@ class SyncPipeline:
         return self._markdown_processor
 
     @property
-    def embedding_service(self):
+    def embedding_service(self) -> EmbeddingServiceInterface:
         """Get or create embedding service instance using provider factory."""
         if not hasattr(self, "_embedding_service"):
             factory = ProviderFactory()
@@ -129,7 +133,7 @@ class SyncPipeline:
         return self._embedding_service
 
     @property
-    def qdrant_service(self):
+    def qdrant_service(self) -> VectorServiceInterface:
         """Get or create vector service instance using provider factory."""
         if not hasattr(self, "_qdrant_service"):
             factory = ProviderFactory()
@@ -397,7 +401,7 @@ class SyncPipeline:
 
             # Get changed files
             added_files, modified_files, deleted_files_list, renamed_files = (
-                self.git_watcher.get_changed_files(self._last_commit, current_commit)
+            self.git_watcher.get_changed_files(self._last_commit or "", current_commit)
             )
 
             processed_files = []
@@ -564,7 +568,7 @@ class SyncPipeline:
 
 
 @click.group()
-def main():
+def main() -> None:
     """
     KNUE Policy Hub to Qdrant synchronization tool.
 
@@ -576,7 +580,7 @@ def main():
 
 
 @main.command(name="list-providers")
-def list_providers():
+def list_providers() -> None:
     """List all available embedding and vector providers."""
     click.echo("🔧 Available Providers\n")
 
@@ -590,7 +594,7 @@ def list_providers():
 
 
 @main.command(name="configure")
-def configure_providers():
+def configure_providers() -> None:
     """Interactive configuration of embedding and vector providers."""
     click.echo("🔧 Multi-Provider Configuration\n")
 
@@ -692,7 +696,7 @@ def configure_providers():
 
 
 @main.command(name="show-config")
-def show_config():
+def show_config() -> None:
     """Show current configuration."""
     try:
         config = Config.from_env()
@@ -738,12 +742,12 @@ def show_config():
 @click.option("--qdrant-cloud-url", help="Qdrant Cloud URL")
 @click.option("--qdrant-api-key", help="Qdrant Cloud API key")
 def test_providers(
-    embedding_provider: Optional[str] = None,
-    vector_provider: Optional[str] = None,
-    openai_api_key: Optional[str] = None,
-    qdrant_cloud_url: Optional[str] = None,
-    qdrant_api_key: Optional[str] = None,
-):
+embedding_provider: Optional[str] = None,
+vector_provider: Optional[str] = None,
+openai_api_key: Optional[str] = None,
+qdrant_cloud_url: Optional[str] = None,
+qdrant_api_key: Optional[str] = None,
+) -> None:
     """Test connectivity to specified providers."""
     click.echo("🔍 Testing Provider Connectivity\n")
 
@@ -856,7 +860,7 @@ def migrate_providers(
     openai_api_key: Optional[str] = None,
     qdrant_cloud_url: Optional[str] = None,
     qdrant_api_key: Optional[str] = None,
-):
+) -> None:
     """Migrate data between different provider configurations.
 
     ⚠️  WARNING: This operation will transfer ALL vector data from source to target.
@@ -992,8 +996,6 @@ def migrate_providers(
 
         # Save migration report only if requested
         if save_report:
-            import json
-            from datetime import datetime
 
             report_file = f"migration_report_{int(report.start_time.timestamp())}.json"
             with open(report_file, "w") as f:
@@ -1027,7 +1029,7 @@ def create_backup(
     openai_api_key: Optional[str] = None,
     qdrant_cloud_url: Optional[str] = None,
     qdrant_api_key: Optional[str] = None,
-):
+) -> None:
     """Create backup of current vector collection."""
     click.echo("💾 Creating Vector Collection Backup\n")
 
@@ -1096,7 +1098,7 @@ def compare_providers(
     openai_api_key: Optional[str] = None,
     qdrant_cloud_url: Optional[str] = None,
     qdrant_api_key: Optional[str] = None,
-):
+) -> None:
     """Compare performance between different provider configurations."""
     click.echo("⚡ Provider Performance Comparison\n")
 
@@ -1189,8 +1191,6 @@ def compare_providers(
                 click.echo(f"  🐌 Target is {1/speedup:.2f}x slower")
 
         # Save comparison report
-        import json
-        from datetime import datetime
 
         report_file = f"performance_comparison_{int(datetime.now().timestamp())}.json"
         with open(report_file, "w") as f:
@@ -1203,7 +1203,7 @@ def compare_providers(
 
 @main.command(name="config-templates")
 @click.option("--tag", help="Filter templates by tag")
-def list_config_templates(tag: Optional[str] = None):
+def list_config_templates(tag: Optional[str] = None) -> None:
     """List available configuration templates."""
     click.echo("📋 Configuration Templates\n")
 
@@ -1582,13 +1582,13 @@ def cleanup_config_backups(keep_days: int, dry_run: bool):
 @click.option("--qdrant-cloud-url", help="Override Qdrant Cloud URL")
 @click.option("--qdrant-api-key", help="Override Qdrant Cloud API key")
 def sync(
-    config_file: Optional[str] = None,
-    embedding_provider: Optional[str] = None,
-    vector_provider: Optional[str] = None,
-    openai_api_key: Optional[str] = None,
-    qdrant_cloud_url: Optional[str] = None,
-    qdrant_api_key: Optional[str] = None,
-):
+config_file: Optional[str] = None,
+embedding_provider: Optional[str] = None,
+vector_provider: Optional[str] = None,
+openai_api_key: Optional[str] = None,
+qdrant_cloud_url: Optional[str] = None,
+qdrant_api_key: Optional[str] = None,
+) -> None:
     """Perform incremental synchronization."""
     config = Config.from_env() if config_file is None else Config()
 
