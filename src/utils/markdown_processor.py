@@ -66,14 +66,14 @@ class MarkdownProcessor:
 
             # If metadata was parsed, return content without frontmatter
             if post.metadata:
-            clean_content: str = post.content
-            metadata = dict(post.metadata)
-            self.logger.debug(
-            "YAML frontmatter removed", metadata_keys=list(post.metadata.keys())
-            )
-            if return_metadata:
-            return clean_content, metadata
-            return clean_content
+                clean_content: str = post.content
+                metadata = dict(post.metadata)
+                self.logger.debug(
+                    "YAML frontmatter removed", metadata_keys=list(post.metadata.keys())
+                )
+                if return_metadata:
+                    return clean_content, metadata
+                return clean_content
 
         except Exception as e:
             self.logger.debug("Failed to parse YAML frontmatter", error=str(e))
@@ -94,7 +94,7 @@ class MarkdownProcessor:
                 if end_idx > 0:
                     # Remove frontmatter and return remaining content
                     remaining_lines = lines[end_idx + 1 :]
-                    clean_content: str = "\n".join(remaining_lines).lstrip("\n")
+                    clean_content: str = "\n".join(remaining_lines).lstrip("\n")  # type: ignore[no-redef]
                     frontmatter_lines = lines[1:end_idx]
 
                     if return_metadata:
@@ -812,9 +812,9 @@ class MarkdownProcessor:
             # Find current section for this chunk
             section_title = ""
             for header in reversed(headers):
-            if int(header["line"]) < end_line:
-            section_title = str(header["title"])
-            break
+                if int(header["line"]) < end_line:  # type: ignore[call-overload]
+                    section_title = str(header["title"])
+                    break
 
             # Calculate metrics (exclude overlap from token limit validation)
             main_content = "\n".join(lines[start_line:end_line])
@@ -1109,11 +1109,11 @@ class MarkdownProcessor:
             title = self.extract_title(content_no_frontmatter, filename)
             clean_content = self.clean_content(content_no_frontmatter)
 
-                return {
-                "content": clean_content,
-                "title": title,
-                "frontmatter": frontmatter_metadata,
-                "char_count": len(clean_content),
+            return {
+            "content": clean_content,
+            "title": title,
+            "frontmatter": frontmatter_metadata,
+            "char_count": len(clean_content),
             }
         except Exception as e:
             self.logger.error(

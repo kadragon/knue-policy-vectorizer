@@ -352,7 +352,7 @@ class QdrantService:
             if score_threshold is not None:
                 search_params["score_threshold"] = score_threshold
 
-            results = self.client.search(**search_params)
+            results = self.client.search(**search_params)  # type: ignore[arg-type]
 
             logger.debug(
                 "Searched points",
@@ -389,7 +389,7 @@ class QdrantService:
 
             if results:
                 logger.debug("Retrieved point", point_id=point_id)
-                return results[0]
+                return results[0]  # type: ignore[return-value]
             else:
                 logger.debug("Point not found", point_id=point_id)
                 return None
@@ -419,11 +419,11 @@ class QdrantService:
                     else str(info.status)
                 ),
                 "vectors_count": info.points_count,
-                "vector_size": info.config.params.vectors.size,
+                "vector_size": info.config.params.vectors.size,  # type: ignore[union-attr]
                 "distance": (
-                    info.config.params.vectors.distance.value
-                    if hasattr(info.config.params.vectors.distance, "value")
-                    else str(info.config.params.vectors.distance)
+                info.config.params.vectors.distance.value  # type: ignore[union-attr]
+                if hasattr(info.config.params.vectors.distance, "value")  # type: ignore[union-attr]
+                else str(info.config.params.vectors.distance)  # type: ignore[union-attr]
                 ),
             }
 
@@ -473,7 +473,7 @@ class QdrantService:
                     break
 
                 # Extract point IDs
-                batch_ids = [point.id for point in scroll_result[0]]
+                batch_ids = [str(point.id) for point in scroll_result[0]]
                 point_ids.extend(batch_ids)
 
                 # Check safety limit

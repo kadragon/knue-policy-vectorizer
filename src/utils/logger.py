@@ -35,7 +35,7 @@ def setup_logger(
     }
 
     def add_colors(
-        logger, method_name: str, event_dict: dict[str, Any]
+    logger: Any, method_name: str, event_dict: dict[str, Any]
     ) -> dict[str, Any]:
         """Add colors to log output based on level."""
         level = event_dict.get("level", "info").lower()
@@ -58,7 +58,7 @@ def setup_logger(
             structlog.processors.TimeStamper(fmt="ISO"),
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
-            add_colors,
+            add_colors,  # type: ignore[list-item]
             (
                 structlog.processors.JSONRenderer()
                 if log_level == "DEBUG"
@@ -71,4 +71,4 @@ def setup_logger(
         cache_logger_on_first_use=True,
     )
 
-    return structlog.get_logger(logger_name or "knue-vectorizer")
+    return structlog.get_logger(logger_name or "knue-vectorizer")  # type: ignore[no-any-return]
