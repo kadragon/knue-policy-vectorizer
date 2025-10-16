@@ -6,44 +6,17 @@ This module provides:
 - Configuration validation and schema checking
 - Configuration templates for common provider setups
 - Configuration import/export functionality
-- Configuration security and credential management
 """
 
-import base64
-import hashlib
 import json
 import os
-import shutil
-from dataclasses import asdict, dataclass
-from datetime import datetime
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import structlog
 
-# Optional dependency: cryptography. Provide a lightweight fallback for tests.
-try:
-    from cryptography.fernet import Fernet  # type: ignore
-except Exception:  # pragma: no cover - fallback path when cryptography isn't installed
-
-    class Fernet:  # type: ignore[no-redef]  # minimal, insecure fallback to satisfy tests without cryptography
-        def __init__(self, key: bytes):
-            self._key = key
-
-        @staticmethod
-        def generate_key() -> bytes:
-            # Return bytes matching Fernet-style base64 urlsafe key length
-            return base64.urlsafe_b64encode(os.urandom(32))
-
-        def encrypt(self, data: bytes) -> bytes:
-            return base64.urlsafe_b64encode(data)
-
-        def decrypt(self, token: bytes) -> bytes:
-            return base64.urlsafe_b64decode(token)
-
-
 from src.config.config import Config
-from src.utils.crypto_utils import CryptoUtils
 from src.utils.providers import EmbeddingProvider, VectorProvider
 
 logger = structlog.get_logger(__name__)
@@ -103,13 +76,11 @@ class ConfigurationManager:
         """Initialize configuration manager"""
         self.config_dir = Path(config_dir)
         self.templates_dir = self.config_dir / "templates"
-        self.secrets_dir = self.config_dir / "secrets"
 
         # Create directories
         for directory in [
             self.config_dir,
             self.templates_dir,
-            self.secrets_dir,
         ]:
             directory.mkdir(parents=True, exist_ok=True)
 
@@ -117,24 +88,6 @@ class ConfigurationManager:
 
         # Initialize with default templates
         self._ensure_default_templates()
-
-        # Initialize encryption key for secrets
-        self._init_encryption()
-
-    def _init_encryption(self) -> None:
-        """Initialize encryption for sensitive configuration data"""
-        key_file = self.secrets_dir / ".key"
-        if key_file.exists():
-            with open(key_file, "rb") as f:
-                self._encryption_key = f.read()
-        else:
-            self._encryption_key = Fernet.generate_key()
-            with open(key_file, "wb") as f:
-                f.write(self._encryption_key)
-            # Secure the key file
-            os.chmod(key_file, 0o600)
-
-        self._cipher = Fernet(self._encryption_key)
 
     def _ensure_default_templates(self) -> None:
         """Create default configuration templates"""
@@ -379,37 +332,6 @@ class ConfigurationManager:
             )
 
         return final_config
-
-    def encrypt_sensitive_config(self, config: Config) -> Dict[str, str]:
-        """Encrypt sensitive configuration values"""
-        sensitive_fields = ["openai_api_key", "qdrant_api_key"]
-
-        encrypted_values = {}
-        config_dict = config.to_dict()
-
-        for field in sensitive_fields:
-            if field in config_dict and config_dict[field]:
-                encrypted_value = self._cipher.encrypt(
-                    config_dict[field].encode("utf-8")
-                )
-                encrypted_values[field] = encrypted_value.decode("utf-8")
-
-        return encrypted_values
-
-    def decrypt_sensitive_config(
-        self, encrypted_values: Dict[str, str]
-    ) -> Dict[str, str]:
-        """Decrypt sensitive configuration values"""
-        decrypted_values = {}
-
-        for field, encrypted_value in encrypted_values.items():
-            try:
-                decrypted_value = self._cipher.decrypt(encrypted_value.encode("utf-8"))
-                decrypted_values[field] = decrypted_value.decode("utf-8")
-            except Exception as e:
-                self.logger.error("Failed to decrypt field", field=field, error=str(e))
-
-        return decrypted_values
 
     def export_config(
         self, config: Config, format: str = "json", include_secrets: bool = False
