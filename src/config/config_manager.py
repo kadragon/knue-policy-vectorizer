@@ -28,7 +28,7 @@ try:
     from cryptography.fernet import Fernet  # type: ignore
 except Exception:  # pragma: no cover - fallback path when cryptography isn't installed
 
-    class Fernet:  # minimal, insecure fallback to satisfy tests without cryptography
+    class Fernet:  # type: ignore[no-redef]  # minimal, insecure fallback to satisfy tests without cryptography
         def __init__(self, key: bytes):
             self._key = key
 
@@ -61,10 +61,10 @@ class ConfigTemplate:
     vector_provider: VectorProvider
     config_overrides: Dict[str, Any]
     required_env_vars: List[str]
-    optional_env_vars: List[str] = None
-    tags: List[str] = None
+    optional_env_vars: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.optional_env_vars is None:
             self.optional_env_vars = []
         if self.tags is None:
@@ -165,7 +165,7 @@ class ConfigurationManager:
         # Initialize encryption key for secrets
         self._init_encryption()
 
-    def _init_encryption(self):
+    def _init_encryption(self) -> None:
         """Initialize encryption for sensitive configuration data"""
         key_file = self.secrets_dir / ".key"
         if key_file.exists():
@@ -180,7 +180,7 @@ class ConfigurationManager:
 
         self._cipher = Fernet(self._encryption_key)
 
-    def _ensure_default_templates(self):
+    def _ensure_default_templates(self) -> None:
         """Create default configuration templates"""
         default_templates = [
             ConfigTemplate(
@@ -232,11 +232,11 @@ class ConfigurationManager:
 
     def validate_config(self, config: Config) -> Dict[str, Any]:
         """Comprehensive configuration validation"""
-        validation_result = {
-            "valid": True,
-            "errors": [],
-            "warnings": [],
-            "suggestions": [],
+        validation_result: Dict[str, Any] = {
+        "valid": True,
+        "errors": [],
+        "warnings": [],
+        "suggestions": [],
         }
 
         try:
@@ -348,7 +348,7 @@ class ConfigurationManager:
         for template_file in self.templates_dir.glob("*.json"):
             try:
                 template = self.load_template(template_file.stem)
-                if template and (tag is None or tag in template.tags):
+                if template and (tag is None or (template.tags and tag in template.tags)):
                     templates.append(template)
             except Exception as e:
                 self.logger.warning(
@@ -664,7 +664,7 @@ class ConfigurationManager:
         config_str = json.dumps(config.to_dict(), sort_keys=True)
         return CryptoUtils.calculate_data_integrity_hash(config_str)
 
-    def cleanup_old_backups(self, keep_days: int = 30):
+    def cleanup_old_backups(self, keep_days: int = 30) -> int:
         """Clean up old backup files"""
         cutoff_time = datetime.now().timestamp() - (keep_days * 24 * 60 * 60)
 

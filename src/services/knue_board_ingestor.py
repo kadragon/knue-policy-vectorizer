@@ -211,7 +211,7 @@ class KnueBoardIngestor:
                 self.parts: List[str] = []
                 self._skip_depth: int = 0  # inside <script>/<style>
 
-            def handle_starttag(self, tag, attrs) -> None:
+            def handle_starttag(self, tag: str, attrs: List[tuple[str, str | None]]) -> None:
                 t = tag.lower()
                 if t in {"script", "style"}:
                     # Enter skip mode for script/style content
@@ -240,7 +240,7 @@ class KnueBoardIngestor:
                 elif t == "li":
                     self.parts.append("\n- ")
 
-            def handle_endtag(self, tag) -> None:
+            def handle_endtag(self, tag: str) -> None:
                 t = tag.lower()
                 if t in {"script", "style"}:
                     if self._skip_depth > 0:
@@ -251,7 +251,7 @@ class KnueBoardIngestor:
                 if t in {"p", "div", "tr", "ul", "ol", "table"}:
                     self.parts.append("\n")
 
-            def handle_data(self, data):
+            def handle_data(self, data: str) -> None:
                 if self._skip_depth > 0:
                     return
                 if data:
@@ -337,7 +337,7 @@ class KnueBoardIngestor:
         for link in attach_links:
             href = link.get("href")
             if href:
-                preview_links.append(urljoin(base_url, href))
+                preview_links.append(urljoin(base_url, str(href)))
 
         return ParsedDetail(title=title, content=content, preview_links=preview_links)
 
@@ -580,7 +580,7 @@ class KnueBoardIngestor:
 
         self.qdrant_client.delete(
             collection_name=name,
-            points_selector=PointIdsList(points=ids_to_delete),
+            points_selector=PointIdsList(points=ids_to_delete),  # type: ignore[arg-type]
         )
         return len(ids_to_delete)
 
@@ -732,7 +732,7 @@ class KnueBoardIngestor:
             retry_max = max(0, int(getattr(self.config, "board_embed_retry_max", 3)))
             backoff_base = float(getattr(self.config, "board_embed_backoff_base", 0.5))
 
-            def flush_batch():
+            def flush_batch() -> None:
                 nonlocal batch_texts, batch_pending, total_upserted, dynamic_batch
                 if not batch_texts:
                     return
