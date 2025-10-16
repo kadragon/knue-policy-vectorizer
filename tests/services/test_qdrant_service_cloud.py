@@ -2,10 +2,9 @@
 Tests for Qdrant Cloud service implementation
 """
 
+import json
 from typing import Any, Dict, List
 from unittest.mock import MagicMock, Mock, patch
-
-import json
 
 import pytest
 

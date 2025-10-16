@@ -110,7 +110,9 @@ class TestGitWatcher:
         # Test case 3: Different commits
         assert watcher.has_changes("old_commit", "new_commit") == True
 
-    def test_git_watcher_get_markdown_files(self, watcher_config: Any, tmp_path: Any) -> None:
+    def test_git_watcher_get_markdown_files(
+        self, watcher_config: Any, tmp_path: Any
+    ) -> None:
         from unittest.mock import Mock
 
         from src.core.git_watcher import GitWatcher
@@ -181,7 +183,9 @@ class TestGitWatcher:
         assert commit_info["commit_date"] == "2024-01-15T10:30:00"
         mock_repo.iter_commits.assert_called_once_with(paths="policy1.md", max_count=1)
 
-    def test_git_watcher_get_changed_files_with_renames(self, watcher_config: Any) -> None:
+    def test_git_watcher_get_changed_files_with_renames(
+        self, watcher_config: Any
+    ) -> None:
         """Test handling of renamed files."""
         from src.core.git_watcher import GitWatcher
 
@@ -215,7 +219,9 @@ class TestGitWatcher:
         assert deleted == []
         assert renamed == [("old_policy.md", "new_policy.md")]
 
-    def test_git_watcher_get_changed_files_with_type_changes(self, watcher_config: Any) -> None:
+    def test_git_watcher_get_changed_files_with_type_changes(
+        self, watcher_config: Any
+    ) -> None:
         """Test handling of type changed files."""
         from src.core.git_watcher import GitWatcher
 
@@ -247,7 +253,9 @@ class TestGitWatcher:
         assert deleted == []
         assert renamed == []
 
-    def test_git_watcher_get_changed_files_rename_edge_cases(self, watcher_config: Any) -> None:
+    def test_git_watcher_get_changed_files_rename_edge_cases(
+        self, watcher_config: Any
+    ) -> None:
         """Test edge cases for rename handling."""
         from src.core.git_watcher import GitWatcher
 
@@ -387,7 +395,10 @@ class TestGitWatcherDetails:
     """Additional tests for URL building, discovery rules, and sync behavior."""
 
     def _make_watcher(
-        self, tmp_path: Any, repo_url: str = "https://example.com/repo.git", branch: str = "main"
+        self,
+        tmp_path: Any,
+        repo_url: str = "https://example.com/repo.git",
+        branch: str = "main",
     ) -> Tuple[Any, Any]:
         from src.core.git_watcher import GitWatcher
 
@@ -419,7 +430,9 @@ class TestGitWatcherDetails:
             ),
         ],
     )
-    def test_get_github_file_url(self, tmp_path: Any, repo_url: Any, branch: Any, file_path: Any, expected: Any) -> None:
+    def test_get_github_file_url(
+        self, tmp_path: Any, repo_url: Any, branch: Any, file_path: Any, expected: Any
+    ) -> None:
         watcher, _ = self._make_watcher(tmp_path, repo_url=repo_url, branch=branch)
         assert watcher.get_github_file_url(file_path) == expected
 

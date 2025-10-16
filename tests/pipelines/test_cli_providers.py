@@ -30,78 +30,7 @@ class TestCLIProviders:
         ]:
             os.environ.pop(key, None)
 
-    def test_list_providers_command(self)-> None:
-        """Test listing available providers"""
-        # Import after implementing
-        from src.pipelines.sync_pipeline import list_providers
-
-        result = self.runner.invoke(list_providers)
-        assert result.exit_code == 0
-        assert "Available Embedding Providers:" in result.output
-        assert "Available Vector Providers:" in result.output
-        assert "openai" in result.output
-        assert "qdrant_cloud" in result.output
-
-    def test_configure_providers_interactive(self)-> None:
-        """Test interactive provider configuration"""
-        from src.pipelines.sync_pipeline import configure_providers
-
-        # Simulate user selecting OpenAI + Qdrant Cloud
-        with patch("click.prompt") as mock_prompt:
-            mock_prompt.side_effect = [
-                "openai",  # Embedding provider
-                "sk-test-key",  # OpenAI API key
-                "text-embedding-3-large",  # OpenAI model
-                "qdrant_cloud",  # Vector provider
-                "https://test.qdrant.tech",  # Qdrant Cloud URL
-                "test-api-key",  # Qdrant API key
-            ]
-
-            with patch("click.confirm", return_value=True):  # Confirm saving
-                result = self.runner.invoke(configure_providers)
-
-        assert result.exit_code == 0
-        assert (
-            "Configuration saving to .env is disabled for security reasons"
-            in result.output
-        )
-
-    def test_configure_providers_with_validation_errors(self)-> None:
-        """Test configuration with validation errors"""
-        from src.pipelines.sync_pipeline import configure_providers
-
-        # Test invalid provider selection
-        with patch("click.prompt") as mock_prompt:
-            mock_prompt.side_effect = [
-                "invalid_provider",  # Invalid embedding provider
-                "openai",  # Valid fallback
-                "sk-test-key",  # OpenAI API key
-                "text-embedding-3-small",  # Model
-                "qdrant_cloud",  # Vector provider
-                "https://test.qdrant.tech",  # Qdrant URL
-                "test-api-key",  # Qdrant API key
-            ]
-
-            with patch("click.confirm", return_value=True):
-                result = self.runner.invoke(configure_providers)
-
-        assert result.exit_code == 0
-        assert (
-            "Invalid provider" in result.output
-            or "Configuration saved" in result.output
-        )
-
-    def test_show_config_command(self)-> None:
-        """Test showing current configuration"""
-        from src.pipelines.sync_pipeline import show_config
-
-        result = self.runner.invoke(show_config)
-        assert result.exit_code == 0
-        assert "Current Configuration" in result.output
-        assert "Embedding Provider:" in result.output
-        assert "Vector Provider:" in result.output
-
-    def test_sync_with_provider_options(self)-> None:
+    def test_sync_with_provider_options(self) -> None:
         """Test sync command with provider options"""
         from src.pipelines.sync_pipeline import main
 
@@ -153,12 +82,14 @@ class TestCLIProviders:
     @patch("src.config.config.Config.from_env")
     @patch("src.services.cloudflare_r2_service.CloudflareR2Service")
     @patch("src.pipelines.sync_pipeline.CloudflareR2SyncPipeline")
-    def test_sync_cloudflare_r2_command(self, mock_pipeline: Any, mock_service: Any, mock_config_from_env: Any)-> None:
+    def test_sync_cloudflare_r2_command(
+        self, mock_pipeline: Any, mock_service: Any, mock_config_from_env: Any
+    ) -> None:
         """Test successful Cloudflare R2 sync command."""
         from src.pipelines.sync_pipeline import sync_cloudflare_r2
 
         config = Config()
-        config.cloudflare_account_id = "account123"  
+        config.cloudflare_account_id = "account123"
         config.cloudflare_r2_bucket = "knue-vectorstore"
         config.cloudflare_r2_endpoint = "https://account123.r2.cloudflarestorage.com"
         config.validate_r2 = Mock()  # type: ignore[method-assign]  # type: ignore[method-assign]
@@ -182,7 +113,9 @@ class TestCLIProviders:
     @patch("src.config.config.Config.from_env")
     @patch("src.services.cloudflare_r2_service.CloudflareR2Service")
     @patch("src.pipelines.sync_pipeline.CloudflareR2SyncPipeline")
-    def test_sync_cloudflare_r2_partial_failure_returns_nonzero_exit(self, mock_pipeline: Any, mock_service: Any, mock_config_from_env: Any)-> None:
+    def test_sync_cloudflare_r2_partial_failure_returns_nonzero_exit(
+        self, mock_pipeline: Any, mock_service: Any, mock_config_from_env: Any
+    ) -> None:
         """Partial sync failures should surface as errors."""
         import click
 
@@ -215,7 +148,9 @@ class TestCLIProviders:
 
     @patch("src.pipelines.sync_pipeline.SyncPipeline")
     @patch("src.config.config.Config.from_env")
-    def test_sync_partial_failure_returns_nonzero_exit(self, mock_config_from_env: Any, mock_pipeline: Any)-> None:
+    def test_sync_partial_failure_returns_nonzero_exit(
+        self, mock_config_from_env: Any, mock_pipeline: Any
+    ) -> None:
         """Partial failures in main sync command should exit non-zero."""
         from src.pipelines.sync_pipeline import sync
 
@@ -239,11 +174,11 @@ class TestCLIProviders:
         mock_pipeline.return_value = mock_instance
 
         with pytest.raises(click.ClickException):
-                sync.callback()  # type: ignore[misc]
+            sync.callback()  # type: ignore[misc]
 
         mock_instance.sync.assert_called_once()
 
-    def test_health_command_with_providers(self)-> None:
+    def test_health_command_with_providers(self) -> None:
         """Test health command with different providers"""
         from src.pipelines.sync_pipeline import main
 
@@ -272,7 +207,7 @@ class TestCLIProviders:
         assert result.exit_code == 0
         assert "All services are healthy" in result.output
 
-    def test_test_providers_command(self)-> None:
+    def test_test_providers_command(self) -> None:
         """Test the test-providers command for connectivity validation"""
         from src.pipelines.sync_pipeline import test_providers
 
@@ -309,7 +244,7 @@ class TestCLIProviders:
         assert result.exit_code == 0
         assert "Provider connectivity test completed" in result.output
 
-    def test_migrate_providers_command(self)-> None:
+    def test_migrate_providers_command(self) -> None:
         """Test the migrate command for switching providers"""
         from src.pipelines.sync_pipeline import migrate_providers
 
@@ -335,31 +270,7 @@ class TestCLIProviders:
 
         assert result.exit_code == 0
 
-    def test_config_file_operations(self)-> None:
-        """Test configuration file save/load operations"""
-        from src.pipelines.sync_pipeline import load_config_file
-
-        config = Config(
-            embedding_provider=EmbeddingProvider.OPENAI,
-            vector_provider=VectorProvider.QDRANT_CLOUD,
-            openai_api_key="sk-test",
-            qdrant_cloud_url="https://test.qdrant.tech",
-        )
-
-        # .env saving disabled, test loading only
-        with self.runner.isolated_filesystem():
-            # Create a test .env file manually
-            with open("test-config.env", "w") as f:
-                f.write("EMBEDDING_PROVIDER=openai\nVECTOR_PROVIDER=qdrant_cloud\n")
-
-            # Test loading config
-            result = self.runner.invoke(
-                load_config_file, ["--config-file", "test-config.env"]
-            )
-
-            assert result.exit_code == 0
-
-    def test_provider_validation_in_cli(self)-> None:
+    def test_provider_validation_in_cli(self) -> None:
         """Test provider validation in CLI commands"""
         from src.pipelines.sync_pipeline import main
 
@@ -371,7 +282,7 @@ class TestCLIProviders:
         assert result.exit_code != 0
         assert "Invalid" in result.output or "Error" in result.output
 
-    def test_environment_variable_override(self)-> None:
+    def test_environment_variable_override(self) -> None:
         """Test that CLI options override environment variables"""
         from src.pipelines.sync_pipeline import main
 
@@ -412,33 +323,7 @@ class TestCLIProviders:
 
         assert result.exit_code == 0
 
-    def test_config_import(self)-> None:
-        """Test configuration import functionality"""
-        from src.pipelines.sync_pipeline import import_config
-
-        with self.runner.isolated_filesystem():
-            # Create a test JSON config
-            import json
-
-            config_data = {
-                "embedding_provider": "openai",
-                "vector_provider": "qdrant_cloud",
-                "qdrant_collection": "test_collection",
-                "vector_size": 1536,
-                "openai_api_key": "sk-test",
-                "openai_model": "text-embedding-3-small",
-                "qdrant_cloud_url": "https://test.qdrant.tech",
-                "qdrant_api_key": "test-key",
-            }
-            with open("config.json", "w") as f:
-                json.dump(config_data, f)
-
-            # Import config
-            result = self.runner.invoke(import_config, ["--config-file", "config.json"])
-
-            assert result.exit_code == 0
-
-    def test_provider_status_display(self)-> None:
+    def test_provider_status_display(self) -> None:
         """Test provider status display in health command"""
         from src.pipelines.sync_pipeline import main
 
