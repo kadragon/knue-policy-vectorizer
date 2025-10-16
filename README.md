@@ -82,7 +82,6 @@ Sync Pipeline CLI ──▶ Markdown Processor ──▶ OpenAI Embeddings ─�
 | `reindex` | 전체 컬렉션 재색인 |
 | `health` | 시스템 헬스 체크 |
 | `test-providers` | OpenAI/Qdrant 연결 검증 |
-| `configure` | 대화형 설정 저장 |
 | `migrate` | Qdrant 클러스터 간 마이그레이션 |
 
 ## ☁️ GitHub Actions

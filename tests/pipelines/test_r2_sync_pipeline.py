@@ -34,7 +34,12 @@ class TestCloudflareR2SyncPipeline:
     @patch("os.walk")
     @patch("builtins.open")
     def test_sync_new_and_modified_files(
-        self, mock_open_file: Any, mock_os_walk: Any, mock_md_cls: Any, mock_r2_cls: Any, mock_config: Config
+        self,
+        mock_open_file: Any,
+        mock_os_walk: Any,
+        mock_md_cls: Any,
+        mock_r2_cls: Any,
+        mock_config: Config,
     ) -> None:
         # Setup: one new file, one modified file, one unchanged file
         mock_os_walk.return_value = [
@@ -84,7 +89,12 @@ class TestCloudflareR2SyncPipeline:
     @patch("os.walk")
     @patch("builtins.open")
     def test_sync_deletes_stale_files(
-        self, mock_open_file: Any, mock_os_walk: Any, mock_md_cls: Any, mock_r2_cls: Any, mock_config: Config
+        self,
+        mock_open_file: Any,
+        mock_os_walk: Any,
+        mock_md_cls: Any,
+        mock_r2_cls: Any,
+        mock_config: Config,
     ) -> None:
         # Setup: local has one file, remote has two
         mock_os_walk.return_value = [("/fake/repo", [], ["existing.md"])]
@@ -126,7 +136,12 @@ class TestCloudflareR2SyncPipeline:
     @patch("os.walk")
     @patch("builtins.open")
     def test_sync_no_changes(
-        self, mock_open_file: Any, mock_os_walk: Any, mock_md_cls: Any, mock_r2_cls: Any, mock_config: Config
+        self,
+        mock_open_file: Any,
+        mock_os_walk: Any,
+        mock_md_cls: Any,
+        mock_r2_cls: Any,
+        mock_config: Config,
     ) -> None:
         # Setup: local and remote are identical
         mock_os_walk.return_value = [("/fake/repo", [], ["file.md"])]
@@ -166,7 +181,14 @@ class TestCloudflareR2SyncPipeline:
     @patch("src.pipelines.r2_sync_pipeline.MarkdownProcessor")
     @patch("os.walk")
     @patch("builtins.open")
-    def test_sync_partial_failure(self, mock_open_file: Any, mock_os_walk: Any, mock_md_cls: Any, mock_r2_cls: Any, mock_config: Any)-> None:
+    def test_sync_partial_failure(
+        self,
+        mock_open_file: Any,
+        mock_os_walk: Any,
+        mock_md_cls: Any,
+        mock_r2_cls: Any,
+        mock_config: Any,
+    ) -> None:
         # Setup: one file to upload, but R2 fails
         mock_os_walk.return_value = [("/fake/repo", [], ["new.md"])]
         file_contents = {"/fake/repo/new.md": "# New Content"}
@@ -200,7 +222,9 @@ class TestCloudflareR2SyncPipeline:
     @patch("src.pipelines.r2_sync_pipeline.CloudflareR2Service")
     @patch("src.pipelines.r2_sync_pipeline.MarkdownProcessor")
     @patch("os.walk")
-    def test_get_local_markdown_files_excludes_readme(self, mock_os_walk: Any, mock_md_cls: Any, mock_r2_cls: Any, mock_config: Any)-> None:
+    def test_get_local_markdown_files_excludes_readme(
+        self, mock_os_walk: Any, mock_md_cls: Any, mock_r2_cls: Any, mock_config: Any
+    ) -> None:
         # Setup: directory with markdown files including README
         mock_os_walk.return_value = [
             ("/fake/repo", [], ["policy.md", "README.md", "readme.md", "guide.md"])

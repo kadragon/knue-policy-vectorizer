@@ -42,7 +42,7 @@ owner: team-admin
 ## Test Fixtures & Sample Data
 - Store test fixtures and sample data in `tests/fixtures/` following Python testing standards.
 - Current fixtures include: `samples/` (markdown policy documents for integration testing and demos).
-- Reference fixtures with relative paths from test files: `Path(__file__).parent.parent / "fixtures" / "samples" / "정책1_학사관리.md"`.
+- Reference fixtures with relative paths from test files: `Path(__file__).parent / "fixtures" / "samples" / "정책1_학사관리.md"`.
 
 ## Support & Maintenance
 - Track roadmap updates in `.spec/sync-pipeline/project-roadmap.spec.md` and GitHub issues.
