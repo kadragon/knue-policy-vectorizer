@@ -39,6 +39,11 @@ owner: team-admin
 - Externalize secrets and environment variables; never commit `.env` files or unmasked credentials.
 - Operate production at `LOG_LEVEL=INFO`; temporarily elevate to `DEBUG` only for short diagnostics.
 
+## Test Fixtures & Sample Data
+- Store test fixtures and sample data in `tests/fixtures/` following Python testing standards.
+- Current fixtures include: `samples/` (markdown policy documents for integration testing and demos).
+- Reference fixtures with relative paths from test files: `Path(__file__).parent.parent / "fixtures" / "samples" / "정책1_학사관리.md"`.
+
 ## Support & Maintenance
 - Track roadmap updates in `.spec/sync-pipeline/project-roadmap.spec.md` and GitHub issues.
 - Require code review with reproducible commands and relevant logs for each change.
