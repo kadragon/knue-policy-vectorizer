@@ -1,9 +1,6 @@
 name: Daily Vector Sync
 
 on:
-  schedule:
-    # 매일 07:00 KST (22:00 UTC 전날)
-    - cron: "0 22 * * *"
   workflow_dispatch: # 수동 실행 가능
 
 # 동시 실행 방지
